@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from typing import NoReturn
+import wandb
 
 from arguments import DataTrainingArguments, ModelArguments
 from datasets import DatasetDict, load_from_disk, load_metric
@@ -298,7 +299,8 @@ def run_mrc(
 
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
-
+    training_args.num_train_epochs = 10.0
+    # training_args.report_to="wandb"
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
         model=model,
@@ -355,4 +357,15 @@ def run_mrc(
 
 
 if __name__ == "__main__":
+    # wandb entity : team, project : project_name, name : exp_name
+    # mrc_bora 기준으로 작성만 해 놓음. arguments.py에서 모델 명 변경 필요.
+    # python train.py --output_dir ./models/train_dataset --do_train --do_eval
+    # 위의 코드로 eval까지 한 번에 하기를 권장, wandb에 한꺼번에 logging 되도록!
+    # Wandb 사용성을 좀 더 개선할 필요가 있어 보임, 코드에 대한 이해가 완료된 후에!!
+    wandb.login()
+    team = "mrc_bora"
+    project_name = "2_PLM-Search"
+    exp_name = "klue_bert-base"
+    wandb.init(entity=team, project=project_name, name=exp_name)
     main()
+    wandb.finish()
