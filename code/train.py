@@ -365,7 +365,7 @@ if __name__ == "__main__":
     wandb.login()
     team = "mrc_bora"
     project_name = "2_PLM-Search"
-    exp_name = "klue_bert-base"
+    exp_name = "monologg/koelectra-base-v3-finetuned-korquad"
     wandb.init(entity=team, project=project_name, name=exp_name)
     main()
     wandb.finish()
