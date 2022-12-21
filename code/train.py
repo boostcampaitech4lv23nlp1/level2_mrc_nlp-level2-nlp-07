@@ -18,6 +18,8 @@ from transformers import (
     # set_seed,
 )
 from utils_qa import set_seed, check_no_error, postprocess_qa_predictions
+from torch.optim.lr_scheduler import _LRScheduler,CosineAnnealingWarmRestarts
+from torch import optim
 
 logger = logging.getLogger(__name__)
 
@@ -300,6 +302,11 @@ def run_mrc(
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
     training_args.num_train_epochs = 10.0
+
+    optimizer = optim.AdamW(model.parameters(), lr=1e-5,eps = 1e-8)
+    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-8)
+    optimizers = (optimizer,scheduler)
+
     # training_args.report_to="wandb"
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
@@ -312,6 +319,7 @@ def run_mrc(
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
+        optimizers = optimizers
     )
 
     # Training
@@ -365,7 +373,7 @@ if __name__ == "__main__":
     wandb.login()
     team = "mrc_bora"
     project_name = "2_PLM-Search"
-    exp_name = "monologg/koelectra-base-v3-finetuned-korquad"
+    exp_name = "klue_bert-base"
     wandb.init(entity=team, project=project_name, name=exp_name)
     main()
     wandb.finish()

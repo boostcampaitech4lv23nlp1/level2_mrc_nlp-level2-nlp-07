@@ -287,10 +287,10 @@ def run_mrc(
 
     #### eval dataset & eval example - predictions.json 생성됨
     if training_args.do_predict:
-        predictions = trainer.predict(
-            test_dataset=eval_dataset, test_examples=datasets["validation"]
-        )
-
+        # predictions = trainer.predict(
+        #     test_dataset=eval_dataset, test_examples=datasets["validation"]
+        # )
+        print(len(model.parameters()))
         # predictions.json 은 postprocess_qa_predictions() 호출시 이미 저장됩니다.
         print(
             "No metric can be presented because there is no correct answer given. Job done!"
