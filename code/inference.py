@@ -4,7 +4,6 @@ Open-Domain Question Answering 을 수행하는 inference 코드 입니다.
 대부분의 로직은 train.py 와 비슷하나 retrieval, predict 부분이 추가되어 있습니다.
 """
 
-
 import logging
 import sys
 from typing import Callable, Dict, List, NoReturn, Tuple
@@ -102,7 +101,7 @@ def run_sparse_retrieval(
     datasets: DatasetDict,
     training_args: TrainingArguments,
     data_args: DataTrainingArguments,
-    data_path: str = "../data",
+    data_path: str = "/opt/ml/input/data",
     context_path: str = "wikipedia_documents.json",
 ) -> DatasetDict:
 
