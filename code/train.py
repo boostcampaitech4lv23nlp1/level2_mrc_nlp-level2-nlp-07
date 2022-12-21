@@ -15,9 +15,9 @@ from transformers import (
     EvalPrediction,
     HfArgumentParser,
     TrainingArguments,
-    set_seed,
+    # set_seed,
 )
-from utils_qa import check_no_error, postprocess_qa_predictions
+from utils_qa import set_seed, check_no_error, postprocess_qa_predictions
 
 logger = logging.getLogger(__name__)
 
