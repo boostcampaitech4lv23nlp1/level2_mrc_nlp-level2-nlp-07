@@ -135,6 +135,6 @@ dmypy.json
 test.ipynb
 
 # output folders
-./code/outputs/
-./code/wandb/
-./code/models/
+code/outputs/
+code/wandb/
+code/models/

@@ -49,7 +49,7 @@ def set_seed(seed: int = 42):
         torch.cuda.manual_seed_all(seed)  # if use multi-GPU
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-
+    print('lock_all_seed')
 
 def postprocess_qa_predictions(
     examples,
