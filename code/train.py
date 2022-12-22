@@ -300,7 +300,11 @@ def run_mrc(
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
     training_args.num_train_epochs = 10.0
-    # training_args.report_to="wandb"
+    training_args.save_total_limit = 3
+    training_args.load_best_model_at_end = True
+    # training_args.report_to= "wandb"
+    training_args.evaluation_strategy = "steps"
+    training_args.eval_steps = training_args.logging_steps
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
         model=model,
@@ -364,7 +368,7 @@ if __name__ == "__main__":
     # Wandb 사용성을 좀 더 개선할 필요가 있어 보임, 코드에 대한 이해가 완료된 후에!!
     wandb.login()
     team = "mrc_bora"
-    project_name = "2_PLM-Search"
+    project_name = "testtest"
     exp_name = "klue_bert-base"
     wandb.init(entity=team, project=project_name, name=exp_name)
     main()
