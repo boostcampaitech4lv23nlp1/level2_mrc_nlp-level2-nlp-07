@@ -18,6 +18,8 @@ from transformers import (
     # set_seed,
 )
 from utils_qa import set_seed, check_no_error, postprocess_qa_predictions
+from torch.optim.lr_scheduler import _LRScheduler,CosineAnnealingWarmRestarts
+from torch import optim
 
 logger = logging.getLogger(__name__)
 
@@ -299,12 +301,17 @@ def run_mrc(
 
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
+    
     training_args.num_train_epochs = 10.0
     training_args.save_total_limit = 3
     training_args.load_best_model_at_end = True
-    # training_args.report_to= "wandb"
     training_args.evaluation_strategy = "steps"
     training_args.eval_steps = training_args.logging_steps
+
+    optimizer = optim.AdamW(model.parameters(), lr=1e-5,eps = 1e-8)
+    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-8)
+    optimizers = (optimizer,scheduler)
+    
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
         model=model,
@@ -316,6 +323,7 @@ def run_mrc(
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
+    #   optimizers = optimizers
     )
 
     # Training
