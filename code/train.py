@@ -305,6 +305,7 @@ def run_mrc(
     training_args.num_train_epochs = 10.0
     training_args.save_total_limit = 3
     training_args.load_best_model_at_end = True
+    training_args.metric_for_best_model = "eval_exact_match"
     training_args.evaluation_strategy = "steps"
     training_args.eval_steps = training_args.logging_steps
 
