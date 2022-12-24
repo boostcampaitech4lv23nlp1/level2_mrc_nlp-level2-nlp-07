@@ -9,7 +9,10 @@ import sys
 from typing import Callable, Dict, List, NoReturn, Tuple
 
 import numpy as np
-from arguments import DataTrainingArguments, ModelArguments
+from arguments import (
+    DataTrainingArguments, ModelArguments, inference_args_class, cfg,
+    model_args, data_args, inference_args)
+
 from datasets import (
     Dataset,
     DatasetDict,
@@ -27,8 +30,6 @@ from transformers import (
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
-    HfArgumentParser,
-    TrainingArguments,
     set_seed,
 )
 from utils_qa import check_no_error, postprocess_qa_predictions
@@ -36,19 +37,10 @@ from utils_qa import check_no_error, postprocess_qa_predictions
 logger = logging.getLogger(__name__)
 
 
-def main():
-    # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
-    # --help flag 를 실행시켜서 확인할 수 도 있습니다.
-
-    parser = HfArgumentParser(
-        (ModelArguments, DataTrainingArguments, TrainingArguments)
-    )
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
-    training_args.do_train = True
-
-    print(f"model is from {model_args.model_name_or_path}")
-    print(f"data is from {data_args.dataset_name}")
+def test():
+    
+    print(f"model is from {model_args.trained_model_name}")
+    inference_args.arg.do_train = True
 
     # logging 설정
     logging.basicConfig(
@@ -58,12 +50,10 @@ def main():
     )
 
     # verbosity 설정 : Transformers logger의 정보로 사용합니다 (on main process only)
-    logger.info("Training/evaluation parameters %s", training_args)
+    logger.info("Training/evaluation parameters %s", inference_args.arg)
 
-    # 모델을 초기화하기 전에 난수를 고정합니다.
-    set_seed(training_args.seed)
-
-    datasets = load_from_disk(data_args.dataset_name)
+    # load test dataset
+    datasets = load_from_disk(data_args.test_dataset_name)
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
@@ -71,35 +61,37 @@ def main():
     config = AutoConfig.from_pretrained(
         model_args.config_name
         if model_args.config_name
-        else model_args.model_name_or_path,
+        else model_args.trained_model_name,
     )
+    
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name
         if model_args.tokenizer_name
-        else model_args.model_name_or_path,
+        else model_args.trained_model_name,
         use_fast=True,
     )
+    
     model = AutoModelForQuestionAnswering.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        model_args.trained_model_name,
+        from_tf=bool(".ckpt" in model_args.trained_model_name),
         config=config,
     )
 
     # True일 경우 : run passage retrieval
     if data_args.eval_retrieval:
         datasets = run_sparse_retrieval(
-            tokenizer.tokenize, datasets, training_args, data_args,
+            tokenizer.tokenize, datasets, inference_args.arg, data_args,
         )
 
     # eval or predict mrc model
-    if training_args.do_eval or training_args.do_predict:
-        run_mrc(data_args, training_args, model_args, datasets, tokenizer, model)
+    if inference_args.arg.do_eval or inference_args.arg.do_predict:
+        run_mrc(cfg, data_args, inference_args.arg, model_args, datasets, tokenizer, model)
 
 
 def run_sparse_retrieval(
     tokenize_fn: Callable[[str], List[str]],
     datasets: DatasetDict,
-    training_args: TrainingArguments,
+    inference_args: inference_args_class,
     data_args: DataTrainingArguments,
     data_path: str = "/opt/ml/input/data",
     context_path: str = "wikipedia_documents.json",
@@ -109,6 +101,7 @@ def run_sparse_retrieval(
     retriever = SparseRetrieval(
         tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
     )
+
     retriever.get_sparse_embedding()
 
     if data_args.use_faiss:
@@ -120,7 +113,7 @@ def run_sparse_retrieval(
         df = retriever.retrieve(datasets["validation"], topk=data_args.top_k_retrieval)
 
     # test data 에 대해선 정답이 없으므로 id question context 로만 데이터셋이 구성됩니다.
-    if training_args.do_predict:
+    if inference_args.do_predict:
         f = Features(
             {
                 "context": Value(dtype="string", id=None),
@@ -130,7 +123,7 @@ def run_sparse_retrieval(
         )
 
     # train data 에 대해선 정답이 존재하므로 id question context answer 로 데이터셋이 구성됩니다.
-    elif training_args.do_eval:
+    elif inference_args.do_eval:
         f = Features(
             {
                 "answers": Sequence(
@@ -150,14 +143,14 @@ def run_sparse_retrieval(
     return datasets
 
 
-def run_mrc(
+def run_mrc(cfg,
     data_args: DataTrainingArguments,
-    training_args: TrainingArguments,
+    inference_args: inference_args_class,
     model_args: ModelArguments,
     datasets: DatasetDict,
     tokenizer,
     model,
-) -> NoReturn:
+) -> None:
 
     # eval 혹은 prediction에서만 사용함
     column_names = datasets["validation"].column_names
@@ -172,7 +165,7 @@ def run_mrc(
 
     # 오류가 있는지 확인합니다.
     last_checkpoint, max_seq_length = check_no_error(
-        data_args, training_args, datasets, tokenizer
+        data_args, inference_args, datasets, tokenizer
     )
 
     # Validation preprocessing / 전처리를 진행합니다.
@@ -187,7 +180,7 @@ def run_mrc(
             stride=data_args.doc_stride,
             return_overflowing_tokens=True,
             return_offsets_mapping=True,
-            # return_token_type_ids=False, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
+            return_token_type_ids=cfg.model.if_not_roberta, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
             padding="max_length" if data_args.pad_to_max_length else False,
         )
 
@@ -229,7 +222,7 @@ def run_mrc(
     # flag가 True이면 이미 max length로 padding된 상태입니다.
     # 그렇지 않다면 data collator에서 padding을 진행해야합니다.
     data_collator = DataCollatorWithPadding(
-        tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None
+        tokenizer, pad_to_multiple_of=8 if inference_args.fp16 else None
     )
 
     # Post-processing:
@@ -237,7 +230,7 @@ def run_mrc(
         examples,
         features,
         predictions: Tuple[np.ndarray, np.ndarray],
-        training_args: TrainingArguments,
+        inference_args: inference_args_class,
     ) -> EvalPrediction:
         # Post-processing: start logits과 end logits을 original context의 정답과 match시킵니다.
         predictions = postprocess_qa_predictions(
@@ -245,16 +238,16 @@ def run_mrc(
             features=features,
             predictions=predictions,
             max_answer_length=data_args.max_answer_length,
-            output_dir=training_args.output_dir,
+            output_dir=inference_args.output_dir,
         )
         # Metric을 구할 수 있도록 Format을 맞춰줍니다.
         formatted_predictions = [
             {"id": k, "prediction_text": v} for k, v in predictions.items()
         ]
 
-        if training_args.do_predict:
+        if inference_args.do_predict:
             return formatted_predictions
-        elif training_args.do_eval:
+        elif inference_args.do_eval:
             references = [
                 {"id": ex["id"], "answers": ex[answer_column_name]}
                 for ex in datasets["validation"]
@@ -273,7 +266,7 @@ def run_mrc(
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
         model=model,
-        args=training_args,
+        args=inference_args,
         train_dataset=None,
         eval_dataset=eval_dataset,
         eval_examples=datasets["validation"],
@@ -286,7 +279,7 @@ def run_mrc(
     logger.info("*** Evaluate ***")
 
     #### eval dataset & eval example - predictions.json 생성됨
-    if training_args.do_predict:
+    if inference_args.do_predict:
         predictions = trainer.predict(
              test_dataset=eval_dataset, test_examples=datasets["validation"]
          )
@@ -296,13 +289,9 @@ def run_mrc(
             "No metric can be presented because there is no correct answer given. Job done!"
         )
 
-    if training_args.do_eval:
+    if inference_args.do_eval:
         metrics = trainer.evaluate()
         metrics["eval_samples"] = len(eval_dataset)
 
         trainer.log_metrics("test", metrics)
         trainer.save_metrics("test", metrics)
-
-
-if __name__ == "__main__":
-    main()
