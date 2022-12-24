@@ -33,7 +33,7 @@ train:
     train_mode: True
     seed: 42
     batch_size: 8
-    epoch: 1
+    epoch: 10
     lr : 5e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
