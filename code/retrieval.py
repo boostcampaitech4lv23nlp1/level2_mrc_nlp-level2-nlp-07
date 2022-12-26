@@ -386,7 +386,7 @@ if __name__ == "__main__":
         "--dataset_name", metavar="/opt/ml/input/data/train_dataset", type=str, help=""
     )
     parser.add_argument(
-        "--model_name_or_path",
+        "--model_name",
         metavar="bert-base-multilingual-cased",
         type=str,
         help="",
@@ -412,7 +412,7 @@ if __name__ == "__main__":
 
     from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False,)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=False,)
 
     retriever = SparseRetrieval(
         tokenize_fn=tokenizer.tokenize,

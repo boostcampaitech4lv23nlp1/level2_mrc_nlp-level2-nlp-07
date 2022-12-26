@@ -4,7 +4,9 @@ import sys
 from typing import NoReturn
 import wandb
 
-from arguments import DataTrainingArguments, ModelArguments
+from arguments import (
+    DataTrainingArguments, ModelArguments, training_args_class, cfg,
+    model_args, data_args, training_args)
 from datasets import DatasetDict, load_from_disk, load_metric
 from trainer_qa import QuestionAnsweringTrainer
 from transformers import (
@@ -13,8 +15,6 @@ from transformers import (
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
-    HfArgumentParser,
-    TrainingArguments,
     # set_seed,
 )
 from utils_qa import set_seed, check_no_error, postprocess_qa_predictions
@@ -23,24 +23,10 @@ from torch import optim
 
 logger = logging.getLogger(__name__)
 
-
-def main():
-    # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
-    # --help flag 를 실행시켜서 확인할 수 도 있습니다.
-
-    parser = HfArgumentParser(
-        (ModelArguments, DataTrainingArguments, TrainingArguments)
-    )
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-    print(model_args.model_name_or_path)
-
-    # [참고] argument를 manual하게 수정하고 싶은 경우에 아래와 같은 방식을 사용할 수 있습니다
-    # training_args.per_device_train_batch_size = 4
-    # print(training_args.per_device_train_batch_size)
-
-    print(f"model is from {model_args.model_name_or_path}")
-    print(f"data is from {data_args.dataset_name}")
-
+def train():
+    
+    print(f"model is from {model_args.model_name}")
+    
     # logging 설정
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -    %(message)s",
@@ -49,11 +35,9 @@ def main():
     )
 
     # verbosity 설정 : Transformers logger의 정보로 사용합니다 (on main process only)
-    logger.info("Training/evaluation parameters %s", training_args)
+    logger.info("Training/evaluation parameters %s", training_args.args)
 
-    # 모델을 초기화하기 전에 난수를 고정합니다.
-    set_seed(training_args.seed)
-
+    # load dataset
     datasets = load_from_disk(data_args.dataset_name)
     print(datasets)
 
@@ -62,44 +46,38 @@ def main():
     config = AutoConfig.from_pretrained(
         model_args.config_name
         if model_args.config_name is not None
-        else model_args.model_name_or_path,
+        else model_args.model_name,
     )
+    
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name
         if model_args.tokenizer_name is not None
-        else model_args.model_name_or_path,
+        else model_args.model_name,
         # 'use_fast' argument를 True로 설정할 경우 rust로 구현된 tokenizer를 사용할 수 있습니다.
         # False로 설정할 경우 python으로 구현된 tokenizer를 사용할 수 있으며,
         # rust version이 비교적 속도가 빠릅니다.
         use_fast=True,
     )
+    
     model = AutoModelForQuestionAnswering.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        model_args.model_name,
+        from_tf=bool(".ckpt" in model_args.model_name),
         config=config,
     )
 
-    print(
-        type(training_args),
-        type(model_args),
-        type(datasets),
-        type(tokenizer),
-        type(model),
-    )
-
     # do_train mrc model 혹은 do_eval mrc model
-    if training_args.do_train or training_args.do_eval:
-        run_mrc(data_args, training_args, model_args, datasets, tokenizer, model)
+    if training_args.args.do_train or training_args.args.do_eval:
+        run_mrc(cfg, data_args, training_args.args, model_args, datasets, tokenizer, model)
 
 
-def run_mrc(
+def run_mrc(cfg,
     data_args: DataTrainingArguments,
-    training_args: TrainingArguments,
+    training_args: training_args_class,
     model_args: ModelArguments,
     datasets: DatasetDict,
     tokenizer,
     model,
-) -> NoReturn:
+) -> None:
 
     # dataset을 전처리합니다.
     # training과 evaluation에서 사용되는 전처리는 아주 조금 다른 형태를 가집니다.
@@ -133,7 +111,7 @@ def run_mrc(
             stride=data_args.doc_stride,
             return_overflowing_tokens=True,
             return_offsets_mapping=True,
-            # return_token_type_ids=False, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
+            return_token_type_ids=cfg.model.if_not_roberta, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
             padding="max_length" if data_args.pad_to_max_length else False,
         )
 
@@ -225,7 +203,7 @@ def run_mrc(
             stride=data_args.doc_stride,
             return_overflowing_tokens=True,
             return_offsets_mapping=True,
-            # return_token_type_ids=False, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
+            return_token_type_ids=cfg.model.if_not_roberta, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
             padding="max_length" if data_args.pad_to_max_length else False,
         )
 
@@ -281,6 +259,7 @@ def run_mrc(
             max_answer_length=data_args.max_answer_length,
             output_dir=training_args.output_dir,
         )
+        #print("print output_dir" , predictions.output_dir)
         # Metric을 구할 수 있도록 Format을 맞춰줍니다.
         formatted_predictions = [
             {"id": k, "prediction_text": v} for k, v in predictions.items()
@@ -301,13 +280,6 @@ def run_mrc(
 
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
-    
-    training_args.num_train_epochs = 10.0
-    training_args.save_total_limit = 3
-    training_args.load_best_model_at_end = True
-    training_args.metric_for_best_model = "eval_exact_match"
-    training_args.evaluation_strategy = "steps"
-    training_args.eval_steps = training_args.logging_steps
 
     optimizer = optim.AdamW(model.parameters(), lr=1e-5,eps = 1e-8)
     scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-8)
@@ -331,8 +303,8 @@ def run_mrc(
     if training_args.do_train:
         if last_checkpoint is not None:
             checkpoint = last_checkpoint
-        elif os.path.isdir(model_args.model_name_or_path):
-            checkpoint = model_args.model_name_or_path
+        elif os.path.isdir(model_args.model_name):
+            checkpoint = model_args.model_name
         else:
             checkpoint = None
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
@@ -367,18 +339,3 @@ def run_mrc(
 
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
-
-
-if __name__ == "__main__":
-    # wandb entity : team, project : project_name, name : exp_name
-    # mrc_bora 기준으로 작성만 해 놓음. arguments.py에서 모델 명 변경 필요.
-    # python train.py --output_dir ./models/train_dataset --do_train --do_eval
-    # 위의 코드로 eval까지 한 번에 하기를 권장, wandb에 한꺼번에 logging 되도록!
-    # Wandb 사용성을 좀 더 개선할 필요가 있어 보임, 코드에 대한 이해가 완료된 후에!!
-    wandb.login()
-    team = "mrc_bora"
-    project_name = "testtest"
-    exp_name = "klue_bert-base"
-    wandb.init(entity=team, project=project_name, name=exp_name)
-    main()
-    wandb.finish()

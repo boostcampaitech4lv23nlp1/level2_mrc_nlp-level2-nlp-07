@@ -34,7 +34,7 @@ from transformers.trainer_utils import get_last_checkpoint
 logger = logging.getLogger(__name__)
 
 
-def set_seed(seed: int = 42):
+def set_seed(seed):
     """
     seed 고정하는 함수 (random, numpy, torch)
 
@@ -312,7 +312,7 @@ def postprocess_qa_predictions(
 
 def check_no_error(
     data_args: DataTrainingArguments,
-    training_args: TrainingArguments,
+    training_args,
     datasets: DatasetDict,
     tokenizer,
 ) -> Tuple[Any, int]:

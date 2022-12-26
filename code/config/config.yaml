@@ -1,0 +1,52 @@
+############################ 꼭 체크해야 할 것 ###################################
+## output_model_dir, output_json_dir, model_name, train_mode, test_mode, wandb ##
+#################################################################################
+
+# 주석 처리한 부분은 기본으로 None 설정되어 있고, 바꾸시려면 arguments.py에서 바꾸시면 됩니다.
+# 항상 꼼꼼히 살펴보시고 바꾸어주세요. (*** 특히 wandb 실험명 바꾸기 ***)
+# output 저장소가 이미 존재한다면 덮어쓰기가 안됩니다. 주의하세요.
+# 자세한 내용은 arguments.py를 참고하시기 바랍니다.
+
+data:
+    dataset_name: /opt/ml/input/data/train_dataset
+    test_dataset_name: /opt/ml/input/data/test_dataset/
+    overwrite_cache: False
+    # preprocessing_num_workers: None
+    max_seq_length: 384
+    pad_to_max_length: False
+    doc_stride: 128
+    max_answer_length: 30
+    eval_retrieval: True
+    num_clusters: 64
+    top_k_retrieval: 10
+    use_faiss: False
+    output_model_dir: ./models/5-klue-bert-base     # 파일 이름 변경하기
+    output_json_dir: ./outputs/5-klue-bert-base/    # 파일 이름 변경하기
+
+model:
+    model_name: klue/bert-base
+    if_not_roberta: True    # bert는 True, roberta는 False
+    # config_name: None
+    # tokenizer_name: None
+
+train:
+    train_mode: True
+    seed: 42
+    batch_size: 8
+    epoch: 10
+    lr : 5e-5
+    weight_decay: 0.1
+    warmup_ratio: 0.1
+    logging_step: 1000
+    label_smoothing_factor: 0.1
+    load_best_model_at_end: False
+    gradient_accumulation_steps: 1
+
+test:
+    test_mode: True
+
+wandb:
+    wandb_mode: True
+    entity: mrc_bora
+    project_name: testtest
+    exp_name: test
