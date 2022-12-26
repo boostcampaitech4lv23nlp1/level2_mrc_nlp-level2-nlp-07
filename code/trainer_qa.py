@@ -15,6 +15,10 @@
 """
 Question-Answering task와 관련된 'Trainer'의 subclass 코드 입니다.
 """
+import torch
+import torch.utils.checkpoint
+from torch import nn
+from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from transformers import Trainer, is_datasets_available, is_torch_tpu_available
 from transformers.trainer_utils import PredictionOutput
@@ -32,7 +36,7 @@ class QuestionAnsweringTrainer(Trainer):
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples
         self.post_process_function = post_process_function
-    
+
     def evaluate(self, eval_dataset=None, eval_examples=None, ignore_keys=None):
         eval_dataset = self.eval_dataset if eval_dataset is None else eval_dataset
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
@@ -65,7 +69,14 @@ class QuestionAnsweringTrainer(Trainer):
             )
             metrics = self.compute_metrics(eval_preds)
             metrics = {'eval_'+k : v for k,v in metrics.items()}
-
+            
+            start_logits, end_logits = output.predictions
+            loss_fct = CrossEntropyLoss()
+            start_loss = loss_fct(torch.from_numpy(start_logits), torch.tensor(eval_dataset['start_positions']))
+            end_loss = loss_fct(torch.from_numpy(end_logits), torch.tensor(eval_dataset['end_positions']))
+            total_loss = (start_loss + end_loss) / 2
+            metrics["eval_loss"] = total_loss.item()
+            
             self.log(metrics)
         else:
             metrics = {}
