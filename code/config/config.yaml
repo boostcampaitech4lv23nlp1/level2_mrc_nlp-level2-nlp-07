@@ -12,20 +12,20 @@ data:
     test_dataset_name: /opt/ml/input/data/test_dataset/
     overwrite_cache: False
     # preprocessing_num_workers: None
-    max_seq_length: 384
+    max_seq_length: 512
     pad_to_max_length: False
-    doc_stride: 128
+    doc_stride: 256
     max_answer_length: 30
     eval_retrieval: True
     num_clusters: 64
     top_k_retrieval: 10
     use_faiss: False
-    output_model_dir: ./models/5-klue-bert-base     # 파일 이름 변경하기
-    output_json_dir: ./outputs/5-klue-bert-base/    # 파일 이름 변경하기
+    output_model_dir: ./models/06_roberta-SGD-CyclicLR_epoch10     # 파일 이름 변경하기
+    output_json_dir: ./outputs/06_roberta-SGD-CyclicLR_epoch10/    # 파일 이름 변경하기
 
 model:
-    model_name: klue/bert-base
-    if_not_roberta: True    # bert는 True, roberta는 False
+    model_name: klue/roberta-large
+    if_not_roberta: False    # bert는 True, roberta는 False
     # config_name: None
     # tokenizer_name: None
 
@@ -37,9 +37,9 @@ train:
     lr : 5e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
-    logging_step: 1000
+    logging_step: 100
     label_smoothing_factor: 0.1
-    load_best_model_at_end: False
+    load_best_model_at_end: True
     gradient_accumulation_steps: 1
 
 test:
@@ -48,5 +48,5 @@ test:
 wandb:
     wandb_mode: True
     entity: mrc_bora
-    project_name: testtest
-    exp_name: test
+    project_name: 6_OptimDiff
+    exp_name: roberta-large_SGD-CyclicLR_epoch10

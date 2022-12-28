@@ -72,8 +72,8 @@ class QuestionAnsweringTrainer(Trainer):
             
             start_logits, end_logits = output.predictions
             loss_fct = CrossEntropyLoss()
-            start_loss = loss_fct(torch.from_numpy(start_logits), torch.tensor(eval_dataset['start_positions']))
-            end_loss = loss_fct(torch.from_numpy(end_logits), torch.tensor(eval_dataset['end_positions']))
+            start_loss = loss_fct(torch.from_numpy(start_logits).to(torch.device("cuda")), torch.tensor(eval_dataset['start_positions']).to(torch.device("cuda")))
+            end_loss = loss_fct(torch.from_numpy(end_logits).to(torch.device("cuda")), torch.tensor(eval_dataset['end_positions']).to(torch.device("cuda")))
             total_loss = (start_loss + end_loss) / 2
             metrics["eval_loss"] = total_loss.item()
             

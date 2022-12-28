@@ -335,11 +335,11 @@ def run_mrc(cfg,
 
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
-
-    optimizer = optim.AdamW(model.parameters(), lr=1e-5,eps = 1e-8)
-    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-8)
+    optimizer = optim.SGD(model.parameters(), lr = 2.24e-04, momentum=0.9)
+    scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=2000, step_size_down=2000, mode='triangular')
+    # optimizer = optim.AdamW(model.parameters(), lr=1e-5, eps = 1e-8)
+    # scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-8)
     optimizers = (optimizer,scheduler)
-    
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
         model=model,
@@ -351,7 +351,7 @@ def run_mrc(cfg,
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
-    #   optimizers = optimizers
+        optimizers = optimizers,
     )
 
     # Training
