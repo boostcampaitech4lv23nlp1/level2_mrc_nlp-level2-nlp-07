@@ -126,7 +126,7 @@ class training_args_class:
                 do_eval = True,
                 do_predict = False,
                 evaluation_strategy = "steps",
-                eval_steps = cfg.train.logging_step,
+                eval_steps = cfg.train.eval_step,
                 fp16 = True,
                 gradient_accumulation_steps = cfg.train.gradient_accumulation_steps,
                 label_smoothing_factor = cfg.train.label_smoothing_factor,

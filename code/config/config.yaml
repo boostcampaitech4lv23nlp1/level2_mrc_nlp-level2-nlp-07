@@ -10,7 +10,7 @@
 data:
     dataset_name: /opt/ml/input/data/train_dataset
     test_dataset_name: /opt/ml/input/data/test_dataset/
-    overwrite_cache: False
+    overwrite_cache: True
     # preprocessing_num_workers: None
     max_seq_length: 512
     pad_to_max_length: False
@@ -33,11 +33,12 @@ train:
     train_mode: True
     seed: 42
     batch_size: 8
-    epoch: 10
-    lr : 5e-5
+    epoch: 30
+    lr : 1e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
     logging_step: 100
+    eval_step: 100
     label_smoothing_factor: 0.1
     load_best_model_at_end: True
     gradient_accumulation_steps: 1
