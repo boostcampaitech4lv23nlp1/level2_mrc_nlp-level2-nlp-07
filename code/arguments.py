@@ -166,7 +166,7 @@ class inference_args_class:
                 per_device_train_batch_size = cfg.train.batch_size,
                 per_device_eval_batch_size = cfg.train.batch_size,
                 save_strategy = "steps",
-                save_steps = 20000,
+                save_steps = 100,
                 save_total_limit = 3,
                 seed = cfg.train.seed,
                 warmup_ratio = cfg.train.warmup_ratio,

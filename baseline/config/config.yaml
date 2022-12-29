@@ -1,0 +1,53 @@
+model : 
+  model_name_or_path : 'klue/roberta-large'
+  config_name : 'klue/roberta-large'
+  load_last_mdoel : True
+  is_not_roberta : False # roberta : False , except : True
+  checkpoint_path : 
+  save_path : '/opt/ml/input/baseline/model/first'
+  load_last_model : False
+
+exp :
+  train : True
+  test : True
+  prediction_prefix : 'test' # prediction의 이름을 저장하는 곳입니다. 
+
+
+data : 
+  train_path : '/opt/ml/input/data/train_dataset/'
+  test_path : '/opt/ml/input/data/test_dataset/'
+  max_seq_length : 512
+  doc_stride : 128
+  num_worker : 4
+  pad_to_max_length : True
+  max_answer_length : 30
+  eval_retrieval : True
+  num_cluster : 64
+  top_k_retrieval : 10
+  use_faiss : True
+
+
+train : 
+  seed : 42
+  batch_size : 8
+  patience : 2
+  epoch : 10
+  lr : 1e-5
+  logging_step : 100
+  eval_step : 500
+  fp16 : True
+  warmup_step : 500
+  weight_decay : 0.01
+  warmup_ratio: 0.1
+  gradient_accumulation_steps : 1
+
+scheduler :
+  T_0 : 40
+  T_mult : 2
+  eta_min : 1e-8
+
+  
+wandb : 
+  project_name: testtest
+  entity: mrc_bora
+  exp_name: new baseline test

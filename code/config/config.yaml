@@ -20,8 +20,8 @@ data:
     num_clusters: 64
     top_k_retrieval: 10
     use_faiss: False
-    output_model_dir: ./models/6_OptimDiff_roberta_large_CyclicLR   # 파일 이름 변경하기
-    output_json_dir: ./outputs/6_OptimDiff_roberta/    # 파일 이름 변경하기
+    output_model_dir: ./models/6_OptimDiff_roberta_large_CyclicLR3   # 파일 이름 변경하기
+    output_json_dir: ./outputs/6_OptimDiff_roberta3/    # 파일 이름 변경하기
 
 model:
     model_name: klue/roberta-large
@@ -33,7 +33,7 @@ train:
     train_mode: True
     seed: 42
     batch_size: 8
-    epoch: 30
+    epoch: 1
     lr : 1e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
@@ -49,5 +49,5 @@ test:
 wandb:
     wandb_mode: True
     entity: mrc_bora
-    project_name: 6_OptimDiff
-    exp_name: roberta-large_AdamW_CyclicLR
+    project_name: testtest
+    exp_name: merong
