@@ -103,6 +103,10 @@ class DataTrainingArguments:
         default=cfg.data.eval_retrieval,
         metadata={"help": "Whether to run passage retrieval using sparse embedding."},
     )
+    dense_retrieval: bool = field(
+        default=cfg.data.dense_retrieval,
+        metadata={"help": "Whether to run passage retrieval using dense embedding."},
+    )
     num_clusters: int = field(
         default=cfg.data.num_clusters, 
         metadata={"help": "Define how many clusters to use for faiss."}

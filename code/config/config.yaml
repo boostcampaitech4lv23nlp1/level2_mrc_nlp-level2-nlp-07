@@ -6,7 +6,6 @@
 # 항상 꼼꼼히 살펴보시고 바꾸어주세요. (*** 특히 wandb 실험명 바꾸기 ***)
 # output 저장소가 이미 존재한다면 덮어쓰기가 안됩니다. 주의하세요.
 # 자세한 내용은 arguments.py를 참고하시기 바랍니다.
-
 data:
     dataset_name: /opt/ml/input/data/train_dataset
     test_dataset_name: /opt/ml/input/data/test_dataset/
@@ -17,11 +16,12 @@ data:
     doc_stride: 256
     max_answer_length: 30
     eval_retrieval: True
+    dense_retrieval: True
     num_clusters: 64
     top_k_retrieval: 10
-    use_faiss: False
-    output_model_dir: ./models/06_roberta-SGD-CyclicLR_epoch10     # 파일 이름 변경하기
-    output_json_dir: ./outputs/06_roberta-SGD-CyclicLR_epoch10/    # 파일 이름 변경하기
+    use_faiss: True
+    output_model_dir: ./models/test     # 파일 이름 변경하기
+    output_json_dir: ./outputs/test/    # 파일 이름 변경하기
 
 model:
     model_name: klue/roberta-large
@@ -33,7 +33,7 @@ train:
     train_mode: True
     seed: 42
     batch_size: 8
-    epoch: 30
+    epoch: 10
     lr : 1e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
@@ -49,5 +49,5 @@ test:
 wandb:
     wandb_mode: True
     entity: mrc_bora
-    project_name: 6_OptimDiff
-    exp_name: roberta-large_SGD-CyclicLR_epoch10
+    project_name: testtest
+    exp_name: test
