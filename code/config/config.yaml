@@ -8,6 +8,8 @@
 # 자세한 내용은 arguments.py를 참고하시기 바랍니다.
 
 data:
+    data_path: /opt/ml/input/data
+    context_path: wikipedia_documents.json
     dataset_name: /opt/ml/input/data/train_dataset
     test_dataset_name: /opt/ml/input/data/test_dataset/
     overwrite_cache: True
@@ -45,6 +47,7 @@ train:
 
 test:
     test_mode: True
+    BM25: True       # BM25는 True, TF-IDF는 False
 
 wandb:
     wandb_mode: True

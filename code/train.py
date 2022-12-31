@@ -336,9 +336,12 @@ def run_mrc(cfg,
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
-    optimizer = optim.AdamW(model.parameters(), lr=1e-5,eps = 1e-8)
+    # optimizer = optim.AdamW(model.parameters(), lr=1e-5,eps = 1e-8)
     # scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-8)
-    scheduler = optim.lr_scheduler.CyclicLR(optimizer,cycle_momentum=False, base_lr = 2.24e-06, max_lr=cfg.train.lr, step_size_up=500, step_size_down=500, mode='triangular')
+    # scheduler = optim.lr_scheduler.CyclicLR(optimizer=optimizer ,cycle_momentum=False, base_lr = 2.24e-06, max_lr=cfg.train.lr, step_size_up=500, step_size_down=500, mode='triangular')
+    optimizer = optim.SGD(model.parameters(), lr = 2.24e-04, momentum=0.9)
+    scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=2000, step_size_down=2000, mode='triangular')
+
     optimizers = (optimizer,scheduler)
     
     # Trainer 초기화
