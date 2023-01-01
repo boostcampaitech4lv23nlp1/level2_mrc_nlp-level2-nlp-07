@@ -26,7 +26,7 @@ class SparseRetrieval:
         tokenize_fn,
         data_path: Optional[str] = "/opt/ml/input/data/",
         context_path: Optional[str] = "wikipedia_documents.json",
-    ) -> NoReturn:
+    ) -> None:
 
         """
         Arguments:

@@ -39,11 +39,11 @@ def train():
 
     # load dataset
     datasets = load_from_disk(data_args.dataset_name)
-    kor_train = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/train/train.json')
-    kor_valid = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/dev/valid.json')
-    new_train = concatenate_datasets([datasets['train'],kor_train])
-    new_valid = concatenate_datasets([datasets['validation'],kor_valid])
-    datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
+    # kor_train = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/train/train_0.json')
+    # kor_valid = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/dev/valid_0.json')
+    # new_train = concatenate_datasets([datasets['train'],kor_train])
+    # new_valid = concatenate_datasets([datasets['validation'],kor_valid])
+    # datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
