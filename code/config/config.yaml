@@ -46,6 +46,17 @@ train:
 test:
     test_mode: True
 
+encoder:
+    model_name: klue/roberta-base
+    epoch: 20
+    batch_size: 4
+    lr: 2e-5
+    weight_decay: 0.01
+    dense_train: True
+    embedding_name: dense_embedding_roberta-base_epoch15_batch4.bin
+    encoder_postfix: roberta-base_epoch15_batch4 # if dense_train == True
+    load_encoder_path: roberta-base_epoch15_batch4 # if dense_train == False
+
 wandb:
     wandb_mode: True
     entity: mrc_bora

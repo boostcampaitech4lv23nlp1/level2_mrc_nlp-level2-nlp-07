@@ -13,6 +13,7 @@ from transformers import AutoTokenizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from tqdm.auto import tqdm
 from tqdm import trange
+from arguments import cfg
 
 import torch
 import torch.nn.functional as F
@@ -71,25 +72,24 @@ class DenseRetrieval:
         train_dataset = load_from_disk(os.path.join(data_path, 'train_dataset'))
         self.train_dataset = train_dataset['train']
         self.args = TrainingArguments(
-                    output_dir="dense_retireval",
+                    output_dir="dense_retrieval",
                     evaluation_strategy="epoch",
-                    learning_rate=2e-5,
-                    per_device_train_batch_size=2,
-                    per_device_eval_batch_size=2,
-                    num_train_epochs=50,
-                    weight_decay=0.01
+                    learning_rate=cfg.encoder.lr,
+                    per_device_train_batch_size=cfg.encoder.batch_size,
+                    per_device_eval_batch_size=cfg.encoder.batch_size,
+                    num_train_epochs=cfg.encoder.epoch,
+                    weight_decay=cfg.encoder.weight_decay
                 )
-        model_checkpoint = "bert-base-multilingual-cased"
+        model_checkpoint = cfg.model.model_name
         self.tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
-        self.dense_train = False
-        if self.dense_train == True:
+        if cfg.encoder.dense_train == True:
             self.p_encoder = BertEncoder.from_pretrained(model_checkpoint)
             self.q_encoder = BertEncoder.from_pretrained(model_checkpoint)
         else:
             if not os.path.exists(os.path.join(data_path, 'dense')):
                 os.makedirs(os.path.join(data_path, 'dense'))
-            p_path = os.path.join(data_path, 'dense/p_encoder.pt')
-            q_path = os.path.join(data_path, 'dense/q_encoder.pt')
+            p_path = os.path.join(data_path, 'dense/p_encoder-{}.pt'.format(cfg.encoder.load_encoder_path))
+            q_path = os.path.join(data_path, 'dense/q_encoder-{}.pt'.format(cfg.encoder.load_encoder_path))
             self.p_encoder = BertEncoder.from_pretrained(p_path)
             self.q_encoder = BertEncoder.from_pretrained(q_path)
         if torch.cuda.is_available():
@@ -105,7 +105,7 @@ class DenseRetrieval:
         """
 
         # Pickle을 저장합니다.
-        pickle_name = f"dense_embedding.bin"
+        pickle_name = cfg.encoder.embedding_name
         emd_path = os.path.join(self.data_path, pickle_name)
 
         if os.path.isfile(emd_path):
@@ -114,10 +114,10 @@ class DenseRetrieval:
             print("Embedding pickle load.")
         else:
             print("Traininig encoders")
-            if self.dense_train == True:
+            if cfg.encoder.dense_train == True:
                 self.p_encoder, self.q_encoder = self.encoder_train(self.args, self.train_dataset, self.p_encoder, self.q_encoder)
-                self.p_encoder.save_pretrained('/opt/ml/input/data/dense/p_encoder.pt')
-                self.q_encoder.save_pretrained('/opt/ml/input/data/dense/q_encoder.pt')
+                self.p_encoder.save_pretrained('/opt/ml/input/data/dense/p_encoder-{}.pt'.format(cfg.encoder.encoder_postfix))
+                self.q_encoder.save_pretrained('/opt/ml/input/data/dense/q_encoder-{}.pt'.format(cfg.encoder.encoder_postfix))
             print("Build passage embedding")
             eval_batch_size = 8
 
