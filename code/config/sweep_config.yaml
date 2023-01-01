@@ -1,0 +1,20 @@
+program: train_sweep.py
+method: grid
+metric:
+  goal: maximize
+  name: eval_exact_match/micro_f1_score
+parameters:
+  model_name:
+    values: [klue/roberta-small]
+  output_dir:
+    values: [./models/sweep/]
+  batch_size: 
+    values: [32, 64]
+  epochs:
+    values: [10]
+  warmup_ratio:
+    values: [0.1]
+  weight_decay:
+    values: [0.01]
+  label_smoothing_factor:
+    values: [0.1]
