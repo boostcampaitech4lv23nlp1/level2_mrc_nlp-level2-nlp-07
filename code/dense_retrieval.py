@@ -255,10 +255,7 @@ class DenseRetrieval:
             self.indexer = faiss.read_index(indexer_path)
 
         else:
-            if cfg.encoder.faiss_gpu: 
-                p_emb = self.p_embedding
-            else:
-                p_emb = self.p_embedding.astype(np.float32)
+            p_emb = self.p_embedding.astype(np.float32).toarray()
             emb_dim = p_emb.shape[-1]
 
             num_clusters = num_clusters
@@ -490,7 +487,7 @@ class DenseRetrieval:
             q_embs = self.q_encoder(**q_seqs).to('cpu').numpy()
         torch.cuda.empty_cache()
         
-        q_embs = q_embs.astype(np.float32)
+        # q_embs = q_embs.toarray().astype(np.float32)
         with timer("query faiss search"):
             D, I = self.indexer.search(q_embs, k)
 

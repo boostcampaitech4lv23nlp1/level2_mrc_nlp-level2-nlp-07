@@ -70,6 +70,15 @@ class DataTrainingArguments:
         default=cfg.data.test_dataset_name,
         metadata={"help": "The name of the dataset to use."},
     )
+
+    aug_kor1: bool = field(
+        default=cfg.data.aug_kor1,
+        metadata={"help": "Whether to use Augmented DataSet squad_kor_v1"},
+    )
+    aug_kor2: bool = field(
+        default=cfg.data.aug_kor2,
+        metadata={"help": "Whether to use Augmented DataSet korquad_v2.1"},
+    )
     
     overwrite_cache: bool = field(
         default=cfg.data.overwrite_cache,
@@ -157,6 +166,7 @@ class training_args_class:
                 seed = cfg.train.seed,
                 warmup_ratio = cfg.train.warmup_ratio,
                 weight_decay = cfg.train.weight_decay,
+                push_to_hub=True,
             )
     )
 @dataclass

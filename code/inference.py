@@ -100,31 +100,32 @@ def run_retrieval(
     data_path: str = "/opt/ml/input/data",
     context_path: str = "wikipedia_documents.json",
 ) -> DatasetDict:
-
-    if cfg.test.BM25:
-        retriever = BM25SparseRetrieval(
-            tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
-        )
-        retriever.get_sparse_embedding()
-    else:
-        # Query에 맞는 Passage들을 Retrieval 합니다.
-        retriever = TFIDFSparseRetrieval(
-            tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
-        )
-        retriever.get_sparse_embedding()
     
     # Query에 맞는 Passage들을 Retrieval 합니다.
     if data_args.dense_retrieval:
-        retriever = DenseRetrieval(
-            tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
-        )
-        retriever.get_passage_embedding()
+        if cfg.test.BM25:
+            retriever = BM25SparseRetrieval(
+                tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+            )
+            retriever.get_sparse_embedding()        
+        else:
+            retriever = DenseRetrieval(
+                tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+            )
+            retriever.get_passage_embedding()
 
     else:
-        retriever = SparseRetrieval(
-            tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
-        )
-        retriever.get_sparse_embedding()
+        if cfg.test.BM25:
+            retriever = BM25SparseRetrieval(
+                tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+            )
+            retriever.get_sparse_embedding()
+        else:
+            # Query에 맞는 Passage들을 Retrieval 합니다.
+            retriever = TFIDFSparseRetrieval(
+                tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+            )
+            retriever.get_sparse_embedding()
 
     if data_args.use_faiss:
         retriever.build_faiss(num_clusters=data_args.num_clusters)

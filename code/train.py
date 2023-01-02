@@ -41,18 +41,19 @@ def train():
     # load dataset
     datasets = load_from_disk(data_args.dataset_name)
     
-    new_data = load_dataset("squad_kor_v1")
-    train_df = Dataset.from_pandas(pd.DataFrame(new_data['train']))
-    validation_df = Dataset.from_pandas(pd.DataFrame(new_data['validation']))
-    train_data = concatenate_datasets([datasets['train'],train_df])
-    validation_data = concatenate_datasets([datasets['validation'],validation_df])
-    datasets = DatasetDict({'train': train_data, 'validation' : validation_data})
-
-    kor_train = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/train/preprocessed/train_under2000_full.json')
-    kor_valid = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/dev/preprocessed/valid_under2000_full.json')
-    new_train = concatenate_datasets([datasets['train'],kor_train])
-    new_valid = concatenate_datasets([datasets['validation'],kor_valid])
-    datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
+    if data_args.aug_kor1:
+        new_data = load_dataset("squad_kor_v1")
+        train_df = Dataset.from_pandas(pd.DataFrame(new_data['train']))
+        validation_df = Dataset.from_pandas(pd.DataFrame(new_data['validation']))
+        train_data = concatenate_datasets([datasets['train'],train_df])
+        validation_data = concatenate_datasets([datasets['validation'],validation_df])
+        datasets = DatasetDict({'train': train_data, 'validation' : validation_data})
+    if data_args.aug_kor2:
+        kor_train = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/train/preprocessed/train_under2000_full.json')
+        kor_valid = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/dev/preprocessed/valid_under2000_full.json')
+        new_train = concatenate_datasets([datasets['train'],kor_train])
+        new_valid = concatenate_datasets([datasets['validation'],kor_valid])
+        datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
@@ -349,10 +350,9 @@ def run_mrc(cfg,
 
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
+
     optimizer = optim.SGD(model.parameters(), lr = 2.24e-04, momentum=0.9)
     scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=2000, step_size_down=2000, mode='triangular')
-    # optimizer = optim.AdamW(model.parameters(), lr=1e-5, eps = 1e-8)
-    # scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-8)
     optimizers = (optimizer,scheduler)
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
@@ -384,7 +384,8 @@ def run_mrc(cfg,
 
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
-        trainer.save_state()
+        # trainer.save_state()
+        trainer.save_model()
 
         output_train_file = os.path.join(training_args.output_dir, "train_results.txt")
 

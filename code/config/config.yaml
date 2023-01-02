@@ -11,6 +11,8 @@ data:
     context_path: wikipedia_documents.json
     dataset_name: /opt/ml/input/data/train_dataset
     test_dataset_name: /opt/ml/input/data/test_dataset/
+    aug_kor1: True # kor 1.0 증강
+    aug_kor2: True # kor 2.1 증강
     overwrite_cache: True
     # preprocessing_num_workers: None
     max_seq_length: 512
@@ -22,8 +24,8 @@ data:
     num_clusters: 64
     top_k_retrieval: 40
     use_faiss: False # BM25의 경우 faiss를 사용하지 않습니다.
-    output_model_dir: ./models/roberta-large_kor1_aug     # 파일 이름 변경하기
-    output_json_dir: ./outputs/roberta-large_kor1_aug/    # 파일 이름 변경하기
+    output_model_dir: ./models/8_roberta-large_train_korquad-1_2     # 파일 이름 변경하기
+    output_json_dir: ./outputs/8_roberta-large_train_korquad-1_2/    # 파일 이름 변경하기
 
 model:
     model_name: klue/roberta-large
@@ -35,7 +37,7 @@ train:
     train_mode: True
     seed: 42
     batch_size: 8
-    epoch: 20
+    epoch: 30
     lr : 1e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
@@ -43,7 +45,7 @@ train:
     eval_step: 1000
     label_smoothing_factor: 0.1
     load_best_model_at_end: True
-    gradient_accumulation_steps: 2
+    gradient_accumulation_steps: 1
 
 test:
     test_mode: True
@@ -56,13 +58,13 @@ encoder:
     lr: 2e-5
     weight_decay: 0.01
     dense_train: False
-    faiss_gpu: True
-    embedding_name: dense_embedding_roberta-base_epoch50_batch16.bin
-    encoder_postfix: roberta-base_epoch50_batch16 # if dense_train == True
-    load_encoder_path: roberta-base_epoch50_batch16 # if dense_train == False
+    faiss_gpu: False
+    embedding_name: dense_embedding.bin
+    encoder_postfix: test # if dense_train == True
+    load_encoder_path: test # if dense_train == False
 
 wandb:
     wandb_mode: True
     entity: mrc_bora
     project_name: testtest
-    exp_name: roberta-large_kor1.0_augtest
+    exp_name: robeta-large_kor1-2
