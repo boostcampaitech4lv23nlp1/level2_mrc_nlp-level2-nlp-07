@@ -54,6 +54,12 @@ def train():
         new_train = concatenate_datasets([datasets['train'],kor_train])
         new_valid = concatenate_datasets([datasets['validation'],kor_valid])
         datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
+    if data_args.aug_aihub:
+        ai_train = Dataset.from_json('/opt/ml/input/data/ai_hub/aihub_train_data.json')
+        ai_valid = Dataset.from_json('/opt/ml/input/data/ai_hub/aihub_validation_data.json')
+        new_train = concatenate_datasets([datasets['train'],ai_train])
+        new_valid = concatenate_datasets([datasets['validation'],ai_valid])
+        datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
@@ -352,7 +358,7 @@ def run_mrc(cfg,
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
     optimizer = optim.SGD(model.parameters(), lr = 2.24e-04, momentum=0.9)
-    scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=2000, step_size_down=2000, mode='triangular')
+    scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=8000, step_size_down=8000, mode='triangular')
     optimizers = (optimizer,scheduler)
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(

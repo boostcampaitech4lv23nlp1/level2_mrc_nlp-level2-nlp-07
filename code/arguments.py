@@ -79,6 +79,10 @@ class DataTrainingArguments:
         default=cfg.data.aug_kor2,
         metadata={"help": "Whether to use Augmented DataSet korquad_v2.1"},
     )
+    aug_aihub: bool = field(
+        default=cfg.data.aug_aihub,
+        metadata={"help": "Whether to use Augmented DataSet Ai-Hub"},
+    )
     
     overwrite_cache: bool = field(
         default=cfg.data.overwrite_cache,
@@ -161,12 +165,12 @@ class training_args_class:
                 per_device_train_batch_size = cfg.train.batch_size,
                 per_device_eval_batch_size = cfg.train.batch_size,
                 save_strategy = "steps",
-                save_steps = 1000,
+                save_steps = 4000,
                 save_total_limit = 3,
                 seed = cfg.train.seed,
                 warmup_ratio = cfg.train.warmup_ratio,
                 weight_decay = cfg.train.weight_decay,
-                push_to_hub=True,
+                # push_to_hub=True,
             )
     )
 @dataclass
