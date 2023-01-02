@@ -80,7 +80,7 @@ class DenseRetrieval:
                     num_train_epochs=cfg.encoder.epoch,
                     weight_decay=cfg.encoder.weight_decay
                 )
-        model_checkpoint = cfg.model.model_name
+        model_checkpoint = cfg.encoder.model_name
         self.tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
         if cfg.encoder.dense_train == True:
             self.p_encoder = BertEncoder.from_pretrained(model_checkpoint)
@@ -119,7 +119,7 @@ class DenseRetrieval:
                 self.p_encoder.save_pretrained('/opt/ml/input/data/dense/p_encoder-{}.pt'.format(cfg.encoder.encoder_postfix))
                 self.q_encoder.save_pretrained('/opt/ml/input/data/dense/q_encoder-{}.pt'.format(cfg.encoder.encoder_postfix))
             print("Build passage embedding")
-            eval_batch_size = 8
+            eval_batch_size = 4
 
             # Construt dataloader
             valid_p_seqs = self.tokenizer(self.contexts, padding="max_length", truncation=True, return_tensors='pt')
@@ -149,7 +149,7 @@ class DenseRetrieval:
                 self.p_embedding = p_embs
             else:
                 self.p_embedding = np.array(p_embs)
-            print(self.p_embedding.shape)
+                print(self.p_embedding.shape)
 
             with open(emd_path, "wb") as file:
                 pickle.dump(self.p_embedding, file)
