@@ -13,7 +13,7 @@ data:
     test_dataset_name: /opt/ml/input/data/test_dataset/
     aug_kor1: True # kor 1.0 증강
     aug_kor2: True # kor 2.1 증강
-    overwrite_cache: True
+    overwrite_cache: False
     # preprocessing_num_workers: None
     max_seq_length: 512
     pad_to_max_length: False
@@ -49,7 +49,7 @@ train:
 
 test:
     test_mode: True
-    BM25: False      # BM25는 True, TF-IDF는 False
+    BM25: True      # BM25는 True, TF-IDF는 False
 
 encoder:
     model_name: klue/roberta-base
@@ -66,5 +66,5 @@ encoder:
 wandb:
     wandb_mode: True
     entity: mrc_bora
-    project_name: testtest
+    project_name: 8_Augmentation
     exp_name: robeta-large_kor1-2
