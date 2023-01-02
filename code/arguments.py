@@ -57,6 +57,14 @@ class DataTrainingArguments:
         default=cfg.data.dataset_name,
         metadata={"help": "The name of the dataset to use."},
     )
+    
+    data_path: Optional[str] = field(
+        default=cfg.data.data_path,
+    )
+    
+    context_path: Optional[str] = field(
+        default=cfg.data.context_path,
+    )    
 
     test_dataset_name: Optional[str] = field(
         default=cfg.data.test_dataset_name,

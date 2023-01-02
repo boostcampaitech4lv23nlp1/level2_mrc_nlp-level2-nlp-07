@@ -8,9 +8,11 @@
 # 자세한 내용은 arguments.py를 참고하시기 바랍니다.
 
 data:
+    data_path: /opt/ml/input/data
+    context_path: wikipedia_documents.json
     dataset_name: /opt/ml/input/data/train_dataset
     test_dataset_name: /opt/ml/input/data/test_dataset/
-    overwrite_cache: True
+    overwrite_cache: False
     # preprocessing_num_workers: None
     max_seq_length: 512
     pad_to_max_length: False
@@ -18,7 +20,7 @@ data:
     max_answer_length: 30
     eval_retrieval: True
     num_clusters: 64
-    top_k_retrieval: 10
+    top_k_retrieval: 40
     use_faiss: False
     output_model_dir: ./models/klue-roberta-large-finetuned-train_dataset   # 파일 이름 변경하기
     output_json_dir: ./outputs/6_OptimDiff_roberta/    # 파일 이름 변경하기
@@ -37,14 +39,15 @@ train:
     lr : 1e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
-    logging_step: 100
-    eval_step: 500
+    logging_step: 1000
+    eval_step: 1000
     label_smoothing_factor: 0.1
     load_best_model_at_end: True
     gradient_accumulation_steps: 2
 
 test:
     test_mode: True
+    BM25: True       # BM25는 True, TF-IDF는 False
 
 wandb:
     wandb_mode: True

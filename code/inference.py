@@ -12,6 +12,8 @@ import numpy as np
 from arguments import (
     DataTrainingArguments, ModelArguments, inference_args_class, cfg,
     model_args, data_args, inference_args)
+from bm25 import BM25Okapi, BM25
+
 
 from datasets import (
     Dataset,
@@ -22,7 +24,7 @@ from datasets import (
     load_from_disk,
     load_metric,
 )
-from retrieval import SparseRetrieval
+from sparse_retrieval import BM25SparseRetrieval, TFIDFSparseRetrieval
 from trainer_qa import QuestionAnsweringTrainer
 from transformers import (
     AutoConfig,
@@ -97,13 +99,18 @@ def run_sparse_retrieval(
     context_path: str = "wikipedia_documents.json",
 ) -> DatasetDict:
 
-    # Query에 맞는 Passage들을 Retrieval 합니다.
-    retriever = SparseRetrieval(
-        tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
-    )
-
-    retriever.get_sparse_embedding()
-
+    if cfg.test.BM25:
+        retriever = BM25SparseRetrieval(
+            tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+        )
+        retriever.get_sparse_embedding()
+    else:
+        # Query에 맞는 Passage들을 Retrieval 합니다.
+        retriever = TFIDFSparseRetrieval(
+            tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+        )
+        retriever.get_sparse_embedding()
+    
     if data_args.use_faiss:
         retriever.build_faiss(num_clusters=data_args.num_clusters)
         df = retriever.retrieve_faiss(
@@ -289,9 +296,9 @@ def run_mrc(cfg,
             "No metric can be presented because there is no correct answer given. Job done!"
         )
 
-    if inference_args.do_eval:
-        metrics = trainer.evaluate()
-        metrics["eval_samples"] = len(eval_dataset)
+    # if inference_args.do_eval:
+    #     metrics = trainer.evaluate()
+    #     metrics["eval_samples"] = len(eval_dataset)
 
-        trainer.log_metrics("test", metrics)
-        trainer.save_metrics("test", metrics)
+    #     trainer.log_metrics("test", metrics)
+    #     trainer.save_metrics("test", metrics)
