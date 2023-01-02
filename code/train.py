@@ -3,11 +3,12 @@ import os
 import sys
 from typing import NoReturn
 import wandb
+import pandas as pd 
 
 from arguments import (
     DataTrainingArguments, ModelArguments, training_args_class, cfg,
     model_args, data_args, training_args)
-from datasets import Dataset, DatasetDict, load_from_disk, load_metric, concatenate_datasets
+from datasets import Dataset, DatasetDict, load_from_disk, load_metric, concatenate_datasets, load_dataset
 from trainer_qa import QuestionAnsweringTrainer
 from transformers import (
     AutoConfig,
@@ -39,11 +40,19 @@ def train():
 
     # load dataset
     datasets = load_from_disk(data_args.dataset_name)
-    # kor_train = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/train/train_0.json')
-    # kor_valid = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/dev/valid_0.json')
-    # new_train = concatenate_datasets([datasets['train'],kor_train])
-    # new_valid = concatenate_datasets([datasets['validation'],kor_valid])
-    # datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
+    
+    new_data = load_dataset("squad_kor_v1")
+    train_df = Dataset.from_pandas(pd.DataFrame(new_data['train']))
+    validation_df = Dataset.from_pandas(pd.DataFrame(new_data['validation']))
+    train_data = concatenate_datasets([datasets['train'],train_df])
+    validation_data = concatenate_datasets([datasets['validation'],validation_df])
+    datasets = DatasetDict({'train': train_data, 'validation' : validation_data})
+
+    kor_train = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/train/preprocessed/train_under2000_full.json')
+    kor_valid = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/dev/preprocessed/valid_under2000_full.json')
+    new_train = concatenate_datasets([datasets['train'],kor_train])
+    new_valid = concatenate_datasets([datasets['validation'],kor_valid])
+    datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.

@@ -18,12 +18,12 @@ data:
     doc_stride: 256
     max_answer_length: 30
     eval_retrieval: True
-    dense_retrieval: True
+    dense_retrieval: False
     num_clusters: 64
     top_k_retrieval: 40
-    use_faiss: False
-    output_model_dir: ./models/5-klue-bert-base     # 파일 이름 변경하기
-    output_json_dir: ./outputs/5-klue-bert-base/    # 파일 이름 변경하기
+    use_faiss: False # BM25의 경우 faiss를 사용하지 않습니다.
+    output_model_dir: ./models/roberta-large_kor1_aug     # 파일 이름 변경하기
+    output_json_dir: ./outputs/roberta-large_kor1_aug/    # 파일 이름 변경하기
 
 model:
     model_name: klue/roberta-large
@@ -32,27 +32,22 @@ model:
     # tokenizer_name: None
 
 train:
-    train_mode: False
+    train_mode: True
     seed: 42
     batch_size: 8
-    epoch: 30
+    epoch: 20
     lr : 1e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
-<<<<<<< HEAD
     logging_step: 1000
     eval_step: 1000
-=======
-    logging_step: 100
-    eval_step: 500
->>>>>>> cef94a095f2a9361f337b202db8308207694e03d
     label_smoothing_factor: 0.1
     load_best_model_at_end: True
     gradient_accumulation_steps: 2
 
 test:
     test_mode: True
-    BM25: True       # BM25는 True, TF-IDF는 False
+    BM25: False      # BM25는 True, TF-IDF는 False
 
 encoder:
     model_name: klue/roberta-base
@@ -60,14 +55,14 @@ encoder:
     batch_size: 16
     lr: 2e-5
     weight_decay: 0.01
-    dense_train: True
-    faiss_gpu: False 
-    embedding_name: test_embedding.bin
-    encoder_postfix: test # if dense_train == True
-    load_encoder_path: test # if dense_train == False
+    dense_train: False
+    faiss_gpu: True
+    embedding_name: dense_embedding_roberta-base_epoch50_batch16.bin
+    encoder_postfix: roberta-base_epoch50_batch16 # if dense_train == True
+    load_encoder_path: roberta-base_epoch50_batch16 # if dense_train == False
 
 wandb:
-    wandb_mode: False
+    wandb_mode: True
     entity: mrc_bora
-    project_name: 6_OptimDiff
-    exp_name: roberta-large_AdamW_CyclicLR
+    project_name: testtest
+    exp_name: roberta-large_kor1.0_augtest
