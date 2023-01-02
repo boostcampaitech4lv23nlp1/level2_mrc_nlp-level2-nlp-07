@@ -22,10 +22,9 @@ from transformers import (
     DataCollatorWithPadding,
     EvalPrediction,
     TrainingArguments,
-    set_seed,
 )
 from utils.load_data import MRC_Dataset
-from utils.util import run_sparse_retrieval
+from utils.util import run_sparse_retrieval,set_seed
 from model.reader import MRCModel
 from utils.util import compute_metrics
 import torch
