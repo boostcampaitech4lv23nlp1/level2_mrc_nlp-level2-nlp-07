@@ -296,9 +296,9 @@ def run_mrc(cfg,
             "No metric can be presented because there is no correct answer given. Job done!"
         )
 
-    if inference_args.do_eval:
-        metrics = trainer.evaluate()
-        metrics["eval_samples"] = len(eval_dataset)
+    # if inference_args.do_eval:
+    #     metrics = trainer.evaluate()
+    #     metrics["eval_samples"] = len(eval_dataset)
 
-        trainer.log_metrics("test", metrics)
-        trainer.save_metrics("test", metrics)
+    #     trainer.log_metrics("test", metrics)
+    #     trainer.save_metrics("test", metrics)

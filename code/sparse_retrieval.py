@@ -485,7 +485,6 @@ class BM25SparseRetrieval:
             result = np.array([self.bm25.get_batch_scores(query, self.ids) for query in tqdm(tokenized_corpus)])
         if not isinstance(result, np.ndarray):
             result = result.toarray()
-            print(result)
         doc_scores = []
         doc_indices = []
         for i in range(result.shape[0]):
@@ -541,8 +540,8 @@ if __name__ == "__main__":
 
     else:
         with timer("bulk query by exhaustive search"):
-            df = retriever.retrieve(full_ds)
-            df["correct"] = df["original_context"] == df["context"]
+            df = retriever.retrieve(full_ds, 100)
+            df["correct"] = [original_context in context for original_context, context in zip(df["original_context"], df["context"])]
             print(
                 "correct retrieval result by exhaustive search",
                 df["correct"].sum() / len(df),
