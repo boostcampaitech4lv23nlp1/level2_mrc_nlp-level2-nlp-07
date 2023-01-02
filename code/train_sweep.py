@@ -3,29 +3,30 @@ import os
 import sys
 from typing import NoReturn
 import wandb
-
-from arguments import (
-    DataTrainingArguments, ModelArguments, training_args_class, cfg,
+from arguments import (DataTrainingArguments, ModelArguments, training_args_class, cfg,
     model_args, data_args, training_args)
 from datasets import DatasetDict, load_from_disk, load_metric
 from trainer_qa import QuestionAnsweringTrainer
-from transformers import (
-    AutoConfig,
-    AutoModelForQuestionAnswering,
-    AutoTokenizer,
-    DataCollatorWithPadding,
-    EvalPrediction,
-    # set_seed,
-)
-from utils_qa import set_seed, check_no_error, postprocess_qa_predictions
+from transformers import (AutoConfig, AutoModelForQuestionAnswering, AutoTokenizer,TrainingArguments,
+    DataCollatorWithPadding, EvalPrediction,)
+from utils_qa import check_no_error, postprocess_qa_predictions
 from torch.optim.lr_scheduler import _LRScheduler,CosineAnnealingWarmRestarts
 from torch import optim
+import torch
+import yaml
 
 logger = logging.getLogger(__name__)
 
 def train():
     
-    print(f"model is from {model_args.model_name}")
+    torch.cuda.empty_cache()
+    
+    wandb.init()
+    sweep = wandb.config
+    wandb.sweep.name = '{}_{}-{}-{}'.format(sweep.model_name, sweep.batch_size, 
+                                       sweep.weight_decay, sweep.label_smoothing_factor)
+    
+    print(f"model is from {sweep.model_name}")
     
     # logging 설정
     logging.basicConfig(
@@ -33,55 +34,68 @@ def train():
         datefmt="%m/%d/%Y %H:%M:%S",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
+    
+    train_arg = TrainingArguments(
+        report_to=["wandb"],
+        do_train = True,
+        do_eval = True,
+        do_predict = False,
+        evaluation_strategy = "steps",
+        eval_steps = cfg.train.eval_step,
+        fp16 = True,
+        gradient_accumulation_steps = cfg.train.gradient_accumulation_steps,
+        label_smoothing_factor = sweep.label_smoothing_factor,
+        learning_rate = cfg.train.lr,
+        logging_strategy = "steps",
+        logging_steps = cfg.train.logging_step,
+        load_best_model_at_end = cfg.train.load_best_model_at_end,
+        metric_for_best_model = "eval_exact_match",
+        num_train_epochs = sweep.epochs,
+        weight_decay = sweep.weight_decay,
+        output_dir = sweep.output_dir,
+        per_device_train_batch_size = sweep.batch_size,
+        per_device_eval_batch_size = sweep.batch_size,
+        save_strategy = "steps",
+        save_steps = 10000,
+        save_total_limit = 3,
+        seed = cfg.train.seed,
+        warmup_ratio = cfg.train.warmup_ratio,
+    )
 
     # verbosity 설정 : Transformers logger의 정보로 사용합니다 (on main process only)
-    logger.info("Training/evaluation parameters %s", training_args.args)
+    logger.info("Training/evaluation parameters %s", train_arg)
 
     # load dataset
     datasets = load_from_disk(data_args.dataset_name)
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
-    # argument로 원하는 모델 이름을 설정하면 옵션을 바꿀 수 있습니다.
-    config = AutoConfig.from_pretrained(
-        model_args.config_name
-        if model_args.config_name is not None
-        else model_args.model_name,
-    )
+    config = AutoConfig.from_pretrained(sweep.model_name)
     
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name
-        if model_args.tokenizer_name is not None
-        else model_args.model_name,
-        # 'use_fast' argument를 True로 설정할 경우 rust로 구현된 tokenizer를 사용할 수 있습니다.
-        # False로 설정할 경우 python으로 구현된 tokenizer를 사용할 수 있으며,
-        # rust version이 비교적 속도가 빠릅니다.
-        use_fast=True,
-    )
+    tokenizer = AutoTokenizer.from_pretrained(sweep.model_name, use_fast=True,)
     
     model = AutoModelForQuestionAnswering.from_pretrained(
-        model_args.model_name,
-        from_tf=bool(".ckpt" in model_args.model_name),
+        sweep.model_name,
+        from_tf=bool(".ckpt" in sweep.model_name),
         config=config,
     )
 
     # do_train mrc model 혹은 do_eval mrc model
-    if training_args.args.do_train or training_args.args.do_eval:
-        run_mrc(cfg, data_args, training_args.args, model_args, datasets, tokenizer, model)
+    if train_arg.do_train or train_arg.do_eval:
+        run_mrc(cfg, data_args, train_arg, model_args, datasets, tokenizer, model)
 
 
 def run_mrc(cfg,
     data_args: DataTrainingArguments,
-    training_args: training_args_class,
+    train_arg: TrainingArguments,
     model_args: ModelArguments,
     datasets: DatasetDict,
     tokenizer,
     model,
-) -> None:
+) -> NoReturn:
 
     # dataset을 전처리합니다.
-    # training과 evaluation에서 사용되는 전처리는 아주 조금 다른 형태를 가집니다.
-    if training_args.do_train:
+    if train_arg.do_train:
         column_names = datasets["train"].column_names
     else:
         column_names = datasets["validation"].column_names
@@ -90,13 +104,12 @@ def run_mrc(cfg,
     context_column_name = "context" if "context" in column_names else column_names[1]
     answer_column_name = "answers" if "answers" in column_names else column_names[2]
 
-    # Padding에 대한 옵션을 설정합니다.
-    # (question|context) 혹은 (context|question)로 세팅 가능합니다.
+    # Padding에 대한 옵션을 설정합니다.(question|context) 혹은 (context|question)로 세팅 가능합니다.
     pad_on_right = tokenizer.padding_side == "right"
 
     # 오류가 있는지 확인합니다.
     last_checkpoint, max_seq_length = check_no_error(
-        data_args, training_args, datasets, tokenizer
+        data_args, train_arg, datasets, tokenizer
     )
 
     # Train preprocessing / 전처리를 진행합니다.
@@ -111,7 +124,7 @@ def run_mrc(cfg,
             stride=data_args.doc_stride,
             return_overflowing_tokens=True,
             return_offsets_mapping=True,
-            return_token_type_ids=cfg.model.if_not_roberta, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
+            return_token_type_ids=is_not_roberta, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
             padding="max_length" if data_args.pad_to_max_length else False,
         )
 
@@ -177,7 +190,7 @@ def run_mrc(cfg,
 
         return tokenized_examples
 
-    if training_args.do_train:
+    if train_arg.do_train:
         if "train" not in datasets:
             raise ValueError("--do_train requires a train dataset")
         train_dataset = datasets["train"]
@@ -203,7 +216,7 @@ def run_mrc(cfg,
             stride=data_args.doc_stride,
             return_overflowing_tokens=True,
             return_offsets_mapping=True,
-            return_token_type_ids=cfg.model.if_not_roberta, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
+            return_token_type_ids=is_not_roberta, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
             padding="max_length" if data_args.pad_to_max_length else False,
         )
 
@@ -285,7 +298,7 @@ def run_mrc(cfg,
 
         return tokenized_examples
 
-    if training_args.do_eval:
+    if train_arg.do_eval:
         eval_dataset = datasets["validation"]
 
         # Validation Feature 생성
@@ -301,28 +314,28 @@ def run_mrc(cfg,
     # flag가 True이면 이미 max length로 padding된 상태입니다.
     # 그렇지 않다면 data collator에서 padding을 진행해야합니다.
     data_collator = DataCollatorWithPadding(
-        tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None
+        tokenizer, pad_to_multiple_of=8 if train_arg.fp16 else None
     )
 
     # Post-processing:
-    def post_processing_function(examples, features, predictions, training_args):
+    def post_processing_function(examples, features, predictions, train_arg):
         # Post-processing: start logits과 end logits을 original context의 정답과 match시킵니다.
         predictions = postprocess_qa_predictions(
             examples=examples,
             features=features,
             predictions=predictions,
             max_answer_length=data_args.max_answer_length,
-            output_dir=training_args.output_dir,
+            output_dir=train_arg.output_dir,
         )
         #print("print output_dir" , predictions.output_dir)
         # Metric을 구할 수 있도록 Format을 맞춰줍니다.
         formatted_predictions = [
             {"id": k, "prediction_text": v} for k, v in predictions.items()
         ]
-        if training_args.do_predict:
+        if train_arg.do_predict:
             return formatted_predictions
 
-        elif training_args.do_eval:
+        elif train_arg.do_eval:
             references = [
                 {"id": ex["id"], "answers": ex[answer_column_name]}
                 for ex in datasets["validation"]
@@ -343,10 +356,10 @@ def run_mrc(cfg,
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
         model=model,
-        args=training_args,
-        train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
-        eval_examples=datasets["validation"] if training_args.do_eval else None,
+        args=train_arg,
+        train_dataset=train_dataset if train_arg.do_train else None,
+        eval_dataset=eval_dataset if train_arg.do_eval else None,
+        eval_examples=datasets["validation"] if train_arg.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
         post_process_function=post_processing_function,
@@ -355,7 +368,7 @@ def run_mrc(cfg,
     )
 
     # Training
-    if training_args.do_train:
+    if train_arg.do_train:
         if last_checkpoint is not None:
             checkpoint = last_checkpoint
         elif os.path.isdir(model_args.model_name):
@@ -370,10 +383,9 @@ def run_mrc(cfg,
 
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
-        # trainer.save_state()
-        trainer.save_model()
+        trainer.save_state()
 
-        output_train_file = os.path.join(training_args.output_dir, "train_results.txt")
+        output_train_file = os.path.join(train_arg.output_dir, "train_results.txt")
 
         with open(output_train_file, "w") as writer:
             logger.info("***** Train results *****")
@@ -383,11 +395,11 @@ def run_mrc(cfg,
 
         # State 저장
         trainer.state.save_to_json(
-            os.path.join(training_args.output_dir, "trainer_state.json")
+            os.path.join(train_arg.output_dir, "trainer_state.json")
         )
 
     # Evaluation
-    if training_args.do_eval:
+    if train_arg.do_eval:
         logger.info("*** Evaluate ***")
         metrics = trainer.evaluate()
 
@@ -395,3 +407,12 @@ def run_mrc(cfg,
 
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
+
+if __name__ == "__main__":
+    ## yaml 파일 경로 설정
+    with open('./config/sweep_config.yaml') as file:
+        sweep_config = yaml.load(file, Loader=yaml.FullLoader)
+
+    sweep_id = wandb.sweep(sweep_config, entity=cfg.wandb.entity) # project name 설정
+    is_not_roberta = False           # roberta면 False, bert면 True
+    wandb.agent(sweep_id, function=train, count=2) # count = 몇 번 sweep 돌 것인지
