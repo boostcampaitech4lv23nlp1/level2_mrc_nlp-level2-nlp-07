@@ -3,7 +3,7 @@ import sys
 from typing import NoReturn
 
 import os
-from datasets import DatasetDict, load_from_disk, load_metric
+from datasets import DatasetDict, load_from_disk, load_metric, load_dataset
 from trainer.trainer import QuestionAnsweringTrainer
 from transformers import (
     AutoTokenizer,
@@ -12,8 +12,8 @@ from transformers import (
     TrainingArguments,
 )
 from utils.load_data import MRC_Dataset
-from utils.util import compute_metrics
-from model.reader import MRCModel
+from utils.util import compute_metrics,aug_data
+# from model.reader import MRCModel
 from torch.optim.lr_scheduler import _LRScheduler,CosineAnnealingWarmRestarts
 from torch import optim
 import torch
@@ -40,7 +40,7 @@ def train(cfg):
         use_fast=True,
     )
     if cfg.model.load_last_model:
-        model = MRCModel(cfg.model.model_name_or_path)
+        # model = MRCModel(cfg.model.model_name_or_path)
         model.load_state_dict(torch.load(cfg.model.checkpoint_path))
         print(f"model is from {cfg.model.checkpoint_path}")
 
@@ -51,6 +51,9 @@ def train(cfg):
 
     ##################### DATA Define ########################
     datasets = load_from_disk(cfg.data.train_path)
+    if cfg.data.use_aug:
+        new_data = load_dataset("squad_kor_v1")
+        datasets = aug_data(datasets, new_data)
     print(datasets)
     train_dataset = MRC_Dataset(datasets['train'],tokenizer=tokenizer,cfg=cfg)
     validation_dataset = MRC_Dataset(datasets['validation'],tokenizer=tokenizer,cfg=cfg)
@@ -72,10 +75,10 @@ def train(cfg):
     training_args = TrainingArguments(
         do_train = cfg.exp.train,
         do_eval = cfg.exp.train,
-        do_predict = cfg.exp.test,
+        do_predict = False,
         output_dir=cfg.model.save_path,
         save_total_limit=5,
-        save_steps=20, 
+        save_steps=2000, 
         num_train_epochs=cfg.train.epoch,
         learning_rate= cfg.train.lr,                         # default : 5e-5
         

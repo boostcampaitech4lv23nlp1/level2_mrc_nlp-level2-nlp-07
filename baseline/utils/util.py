@@ -5,15 +5,17 @@ import numpy as np
 import torch
 from model.retrieval import SparseRetrieval
 from transformers import EvalPrediction,is_torch_available
-
+from typing import List, NoReturn, Optional, Tuple, Union
 from datasets import (
     Dataset,
     DatasetDict,
     Features,
     Sequence,
     Value,
+    concatenate_datasets,
     load_metric,
 )
+import pandas as pd
 def set_seed(seed: int = 42):
     """
     seed 고정하는 함수 (random, numpy, torch)
@@ -86,3 +88,12 @@ def run_sparse_retrieval(
         )
     datasets = DatasetDict({"validation": Dataset.from_pandas(df, features=f)})
     return datasets
+
+def aug_data(data, new_data):
+    assert type(new_data) == DatasetDict, f'it mustnbe a Dataset type but you give {type(new_data)}'
+    train_df = Dataset.from_pandas(pd.DataFrame(new_data['train']))
+    validation_df = Dataset.from_pandas(pd.DataFrame(new_data['validation']))
+    train_data = concatenate_datasets([data['train'],train_df])
+    validation_data = concatenate_datasets([data['validation'],validation_df])
+    aug_dataset = DatasetDict({'train': train_data, 'validation' : validation_data})
+    return aug_dataset

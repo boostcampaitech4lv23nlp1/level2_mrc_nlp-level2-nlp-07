@@ -1,7 +1,6 @@
 model : 
   model_name_or_path : 'klue/roberta-large'
   config_name : 'klue/roberta-large'
-  load_last_mdoel : True
   is_not_roberta : False # roberta : False , except : True
   checkpoint_path : 
   save_path : '/opt/ml/input/baseline/model/first'
@@ -17,13 +16,14 @@ data :
   train_path : '/opt/ml/input/data/train_dataset/'
   test_path : '/opt/ml/input/data/test_dataset/'
   max_seq_length : 512
-  doc_stride : 128
+  doc_stride : 256
   num_worker : 4
   pad_to_max_length : True
   max_answer_length : 30
   eval_retrieval : True
   num_cluster : 64
   top_k_retrieval : 10
+  use_aug : True
   use_faiss : True
 
 
@@ -42,8 +42,8 @@ train :
   gradient_accumulation_steps : 1
 
 scheduler :
-  T_0 : 40
-  T_mult : 2
+  T_0 : 50
+  T_mult : 4
   eta_min : 1e-8
 
   
