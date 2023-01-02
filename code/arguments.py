@@ -145,6 +145,7 @@ class training_args_class:
                 seed = cfg.train.seed,
                 warmup_ratio = cfg.train.warmup_ratio,
                 weight_decay = cfg.train.weight_decay,
+                push_to_hub=True,
             )
     )
 @dataclass
