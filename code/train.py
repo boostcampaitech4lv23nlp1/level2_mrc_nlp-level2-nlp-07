@@ -375,7 +375,8 @@ def run_mrc(cfg,
 
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
-        trainer.save_state()
+        # trainer.save_state()
+        trainer.save_model()
 
         output_train_file = os.path.join(training_args.output_dir, "train_results.txt")
 

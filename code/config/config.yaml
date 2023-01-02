@@ -16,11 +16,11 @@ data:
     doc_stride: 256
     max_answer_length: 30
     eval_retrieval: True
-    dense_retrieval: True
+    dense_retrieval: False
     num_clusters: 64
-    top_k_retrieval: 1
-    use_faiss: True
-    output_model_dir: ./models/test     # 파일 이름 변경하기
+    top_k_retrieval: 10
+    use_faiss: False
+    output_model_dir: ./models/test   # 파일 이름 변경하기
     output_json_dir: ./outputs/test/    # 파일 이름 변경하기
 
 model:
@@ -38,7 +38,7 @@ train:
     weight_decay: 0.1
     warmup_ratio: 0.1
     logging_step: 100
-    eval_step: 100
+    eval_step: 1000
     label_smoothing_factor: 0.1
     load_best_model_at_end: True
     gradient_accumulation_steps: 1
@@ -62,4 +62,4 @@ wandb:
     wandb_mode: False
     entity: mrc_bora
     project_name: testtest
-    exp_name: test
+    exp_name: merong
