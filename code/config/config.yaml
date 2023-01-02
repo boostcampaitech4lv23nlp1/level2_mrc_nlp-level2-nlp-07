@@ -18,10 +18,10 @@ data:
     eval_retrieval: True
     dense_retrieval: True
     num_clusters: 64
-    top_k_retrieval: 1
+    top_k_retrieval: 10
     use_faiss: True
-    output_model_dir: ./models/test     # 파일 이름 변경하기
-    output_json_dir: ./outputs/test/    # 파일 이름 변경하기
+    output_model_dir: ./models/dense_roberta-large_epoch20_batch8     # 파일 이름 변경하기
+    output_json_dir: ./outputs/dense_roberta-large_epoch50_batch16/    # 파일 이름 변경하기
 
 model:
     model_name: klue/roberta-large
@@ -37,8 +37,8 @@ train:
     lr : 1e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
-    logging_step: 100
-    eval_step: 100
+    logging_step: 1000
+    eval_step: 1000
     label_smoothing_factor: 0.1
     load_best_model_at_end: True
     gradient_accumulation_steps: 1
@@ -48,12 +48,12 @@ test:
 
 encoder:
     model_name: klue/roberta-base
-    epoch: 20
+    epoch: 50
     batch_size: 16
     lr: 2e-5
     weight_decay: 0.01
-    dense_train: False
-    faiss_gpu: False
+    dense_train: True
+    faiss_gpu: False 
     embedding_name: test_embedding.bin
     encoder_postfix: test # if dense_train == True
     load_encoder_path: test # if dense_train == False
