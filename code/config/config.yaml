@@ -20,9 +20,8 @@ data:
     num_clusters: 64
     top_k_retrieval: 1
     use_faiss: True
-    faiss_gpu: True
-    output_model_dir: ./models/dense_roberta-large_epoch20_batch8     # 파일 이름 변경하기
-    output_json_dir: ./outputs/dense_roberta-large_epoch20_batch8/    # 파일 이름 변경하기
+    output_model_dir: ./models/test     # 파일 이름 변경하기
+    output_json_dir: ./outputs/test/    # 파일 이름 변경하기
 
 model:
     model_name: klue/roberta-large
@@ -48,18 +47,19 @@ test:
     test_mode: True
 
 encoder:
-    model_name: klue/bert-base
+    model_name: klue/roberta-base
     epoch: 20
-    batch_size: 2
+    batch_size: 16
     lr: 2e-5
     weight_decay: 0.01
-    dense_train: True
-    embedding_name: dense_embedding_bert-base_epoch20_batch2.bin
-    encoder_postfix: bert-base_epoch20_batch2 # if dense_train == True
-    load_encoder_path: bert-base_epoch20_batch2 # if dense_train == False
+    dense_train: False
+    faiss_gpu: False
+    embedding_name: test_embedding.bin
+    encoder_postfix: test # if dense_train == True
+    load_encoder_path: test # if dense_train == False
 
 wandb:
     wandb_mode: False
     entity: mrc_bora
-    project_name: 9_DPR_BM25
-    exp_name: roberta-large_denseOnly-epoch20_batch8
+    project_name: testtest
+    exp_name: test

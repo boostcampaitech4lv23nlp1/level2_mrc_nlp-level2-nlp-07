@@ -119,7 +119,7 @@ class DenseRetrieval:
                 self.p_encoder.save_pretrained('/opt/ml/input/data/dense/p_encoder-{}.pt'.format(cfg.encoder.encoder_postfix))
                 self.q_encoder.save_pretrained('/opt/ml/input/data/dense/q_encoder-{}.pt'.format(cfg.encoder.encoder_postfix))
             print("Build passage embedding")
-            eval_batch_size = 4
+            eval_batch_size = 8
 
             # Construt dataloader
             valid_p_seqs = self.tokenizer(self.contexts, padding="max_length", truncation=True, return_tensors='pt')
@@ -145,7 +145,7 @@ class DenseRetrieval:
                         
                     outputs = self.p_encoder(**p_inputs).to('cpu').numpy()
                     p_embs.extend(outputs)
-            if cfg.data.faiss_gpu:
+            if cfg.encoder.faiss_gpu:
                 self.p_embedding = p_embs
             else:
                 self.p_embedding = np.array(p_embs)
@@ -255,18 +255,18 @@ class DenseRetrieval:
             self.indexer = faiss.read_index(indexer_path)
 
         else:
-            if cfg.data.faiss_gpu: 
+            if cfg.encoder.faiss_gpu: 
                 p_emb = self.p_embedding
             else:
                 p_emb = self.p_embedding.astype(np.float32)
             emb_dim = p_emb.shape[-1]
 
             num_clusters = num_clusters
-            if cfg.data.faiss_gpu: 
+            if cfg.encoder.faiss_gpu: 
                 res = faiss.StandardGpuResources()
             quantizer = faiss.IndexFlatL2(emb_dim)
-            if cfg.data.faiss_gpu:
-                index_ivf = faiss.IndexIVFFlat(
+            if cfg.encoder.faiss_gpu:
+                index_ivf = faiss.IndexIVFScalarQuantizer(
                 quantizer, quantizer.d, num_clusters, faiss.METRIC_L2
             )
                 self.indexer = faiss.index_cpu_to_gpu(res, 0, index_ivf)
@@ -513,16 +513,10 @@ class DenseRetrieval:
         q_seqs = self.tokenizer(queries, padding="max_length", truncation=True, return_tensors='pt').to('cuda')
         with torch.no_grad():
             self.q_encoder.eval()
-            if cfg.data.faiss_gpu:
-                q_embs = self.q_encoder(**q_seqs)
-            else:
-                q_embs = self.q_encoder(**q_seqs).to('cpu').numpy()
+            q_embs = self.q_encoder(**q_seqs).to('cpu').numpy()
         torch.cuda.empty_cache()
         
-        if cfg.data.faiss_gpu:
-            pass
-        else:
-            q_embs = q_embs.astype(np.float32)
+        q_embs = q_embs.astype(np.float32)
         D, I = self.indexer.search(q_embs, k)
 
         return D.tolist(), I.tolist()
