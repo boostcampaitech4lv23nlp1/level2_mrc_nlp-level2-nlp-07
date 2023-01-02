@@ -39,11 +39,16 @@ train:
     lr : 1e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
+<<<<<<< HEAD
     logging_step: 1000
     eval_step: 1000
+=======
+    logging_step: 100
+    eval_step: 500
+>>>>>>> cef94a095f2a9361f337b202db8308207694e03d
     label_smoothing_factor: 0.1
     load_best_model_at_end: True
-    gradient_accumulation_steps: 1
+    gradient_accumulation_steps: 2
 
 test:
     test_mode: True
