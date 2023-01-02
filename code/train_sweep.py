@@ -13,18 +13,19 @@ from utils_qa import check_no_error, postprocess_qa_predictions
 from torch.optim.lr_scheduler import _LRScheduler,CosineAnnealingWarmRestarts
 from torch import optim
 import torch
-#from ray.tune.integration.wandb import wandb_mixin
 import yaml
 
 logger = logging.getLogger(__name__)
 
-#@wandb_mixin
 def train():
     
     torch.cuda.empty_cache()
-    wandb.init(entity=cfg.wandb.entity)
-    sweep = wandb.config 
-    print(sweep)
+    
+    wandb.init()
+    sweep = wandb.config
+    wandb.sweep.name = '{}_{}-{}-{}'.format(sweep.model_name, sweep.batch_size, 
+                                       sweep.weight_decay, sweep.label_smoothing_factor)
+    
     print(f"model is from {sweep.model_name}")
     
     # logging 설정
@@ -59,8 +60,6 @@ def train():
         save_total_limit = 3,
         seed = cfg.train.seed,
         warmup_ratio = cfg.train.warmup_ratio,
-
-        
     )
 
     # verbosity 설정 : Transformers logger의 정보로 사용합니다 (on main process only)
@@ -71,13 +70,13 @@ def train():
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
-    config = AutoConfig.from_pretrained(model_args.model_name)
+    config = AutoConfig.from_pretrained(sweep.model_name)
     
-    tokenizer = AutoTokenizer.from_pretrained(model_args.model_name, use_fast=True,)
+    tokenizer = AutoTokenizer.from_pretrained(sweep.model_name, use_fast=True,)
     
     model = AutoModelForQuestionAnswering.from_pretrained(
-        model_args.model_name,
-        from_tf=bool(".ckpt" in model_args.model_name),
+        sweep.model_name,
+        from_tf=bool(".ckpt" in sweep.model_name),
         config=config,
     )
 
@@ -350,9 +349,8 @@ def run_mrc(cfg,
     def compute_metrics(p: EvalPrediction):
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
-    optimizer = optim.AdamW(model.parameters(), lr=1e-5,eps = 1e-8)
-    # scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-8)
-    scheduler = optim.lr_scheduler.CyclicLR(optimizer,cycle_momentum=False, base_lr = 2.24e-06, max_lr=cfg.train.lr, step_size_up=500, step_size_down=500, mode='triangular')
+    optimizer = optim.SGD(model.parameters(), lr = 2.24e-04, momentum=0.9)
+    scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=2000, step_size_down=2000, mode='triangular')
     optimizers = (optimizer,scheduler)
     
     # Trainer 초기화
@@ -415,6 +413,6 @@ if __name__ == "__main__":
     with open('./config/sweep_config.yaml') as file:
         sweep_config = yaml.load(file, Loader=yaml.FullLoader)
 
-    sweep_id = wandb.sweep(sweep_config, project='testtest') # project name 설정
+    sweep_id = wandb.sweep(sweep_config, entity=cfg.wandb.entity) # project name 설정
     is_not_roberta = False           # roberta면 False, bert면 True
     wandb.agent(sweep_id, function=train, count=2) # count = 몇 번 sweep 돌 것인지
