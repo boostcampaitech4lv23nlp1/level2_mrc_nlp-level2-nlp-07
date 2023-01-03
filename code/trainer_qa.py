@@ -74,6 +74,7 @@ class QuestionAnsweringTrainer(Trainer):
             start_loss = loss_fct(torch.from_numpy(start_logits).to(torch.device("cuda")), torch.tensor(eval_dataset['start_positions']).to(torch.device("cuda")))
             end_loss = loss_fct(torch.from_numpy(end_logits).to(torch.device("cuda")), torch.tensor(eval_dataset['end_positions']).to(torch.device("cuda")))
             total_loss = (start_loss + end_loss) / 2
+            torch.cuda.empty_cache()
             metrics["eval_loss"] = total_loss.item()
             
             self.log(metrics)

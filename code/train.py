@@ -3,11 +3,12 @@ import os
 import sys
 from typing import NoReturn
 import wandb
+import pandas as pd 
 
 from arguments import (
     DataTrainingArguments, ModelArguments, training_args_class, cfg,
     model_args, data_args, training_args)
-from datasets import DatasetDict, load_from_disk, load_metric
+from datasets import Dataset, DatasetDict, load_from_disk, load_metric, concatenate_datasets, load_dataset
 from trainer_qa import QuestionAnsweringTrainer
 from transformers import (
     AutoConfig,
@@ -39,6 +40,26 @@ def train():
 
     # load dataset
     datasets = load_from_disk(data_args.dataset_name)
+    
+    if data_args.aug_kor1:
+        new_data = load_dataset("squad_kor_v1")
+        train_df = Dataset.from_pandas(pd.DataFrame(new_data['train']))
+        validation_df = Dataset.from_pandas(pd.DataFrame(new_data['validation']))
+        train_data = concatenate_datasets([datasets['train'],train_df])
+        validation_data = concatenate_datasets([datasets['validation'],validation_df])
+        datasets = DatasetDict({'train': train_data, 'validation' : validation_data})
+    if data_args.aug_kor2:
+        kor_train = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/train/preprocessed/train_under2000_full.json')
+        kor_valid = Dataset.from_json('/opt/ml/input/data/KorQuAD_2.1/dev/preprocessed/valid_under2000_full.json')
+        new_train = concatenate_datasets([datasets['train'],kor_train])
+        new_valid = concatenate_datasets([datasets['validation'],kor_valid])
+        datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
+    if data_args.aug_aihub:
+        ai_train = Dataset.from_json('/opt/ml/input/data/ai_hub/aihub_train_data.json')
+        ai_valid = Dataset.from_json('/opt/ml/input/data/ai_hub/aihub_validation_data.json')
+        new_train = concatenate_datasets([datasets['train'],ai_train])
+        new_valid = concatenate_datasets([datasets['validation'],ai_valid])
+        datasets = DatasetDict({'train' : new_train, 'validation' : new_valid})
     print(datasets)
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
@@ -210,26 +231,7 @@ def run_mrc(cfg,
         # 길이가 긴 context가 등장할 경우 truncate를 진행해야하므로, 해당 데이터셋을 찾을 수 있도록 mapping 가능한 값이 필요합니다.
         sample_mapping = tokenized_examples.pop("overflow_to_sample_mapping")
 
-        # evaluation을 위해, prediction을 context의 substring으로 변환해야합니다.
-        # corresponding example_id를 유지하고 offset mappings을 저장해야합니다.
-        tokenized_examples["example_id"] = []
-
-        for i in range(len(tokenized_examples["input_ids"])):
-            # sequence id를 설정합니다 (to know what is the context and what is the question).
-            sequence_ids = tokenized_examples.sequence_ids(i)
-            context_index = 1 if pad_on_right else 0
-
-            # 하나의 example이 여러개의 span을 가질 수 있습니다.
-            sample_index = sample_mapping[i]
-            tokenized_examples["example_id"].append(examples["id"][sample_index])
-
-            # Set to None the offset_mapping을 None으로 설정해서 token position이 context의 일부인지 쉽게 판별 할 수 있습니다.
-            tokenized_examples["offset_mapping"][i] = [
-                (o if sequence_ids[k] == context_index else None)
-                for k, o in enumerate(tokenized_examples["offset_mapping"][i])
-            ]
-
-            # 데이터셋에 "start position", "enc position" label을 부여합니다.
+        # 데이터셋에 "start position", "enc position" label을 부여합니다.
         tokenized_examples["start_positions"] = []
         tokenized_examples["end_positions"] = []
 
@@ -282,6 +284,25 @@ def run_mrc(cfg,
                     while offsets[token_end_index][1] >= end_char:
                         token_end_index -= 1
                     tokenized_examples["end_positions"].append(token_end_index + 1)
+                    
+        # evaluation을 위해, prediction을 context의 substring으로 변환해야합니다.
+        # corresponding example_id를 유지하고 offset mappings을 저장해야합니다.
+        tokenized_examples["example_id"] = []
+
+        for i in range(len(tokenized_examples["input_ids"])):
+            # sequence id를 설정합니다 (to know what is the context and what is the question).
+            sequence_ids = tokenized_examples.sequence_ids(i)
+            context_index = 1 if pad_on_right else 0
+
+            # 하나의 example이 여러개의 span을 가질 수 있습니다.
+            sample_index = sample_mapping[i]
+            tokenized_examples["example_id"].append(examples["id"][sample_index])
+
+            # Set to None the offset_mapping을 None으로 설정해서 token position이 context의 일부인지 쉽게 판별 할 수 있습니다.
+            tokenized_examples["offset_mapping"][i] = [
+                (o if sequence_ids[k] == context_index else None)
+                for k, o in enumerate(tokenized_examples["offset_mapping"][i])
+            ]
 
         return tokenized_examples
 
@@ -337,7 +358,7 @@ def run_mrc(cfg,
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
     optimizer = optim.SGD(model.parameters(), lr = 2.24e-04, momentum=0.9)
-    scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=2000, step_size_down=2000, mode='triangular')
+    scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=cfg.train.optimizer_step_size, step_size_down=cfg.train.optimizer_step_size, mode='triangular')
     optimizers = (optimizer,scheduler)
     
     # Trainer 초기화
@@ -351,7 +372,7 @@ def run_mrc(cfg,
         data_collator=data_collator,
         post_process_function=post_processing_function,
         compute_metrics=compute_metrics,
-        optimizers = optimizers
+        optimizers = optimizers,
     )
 
     # Training

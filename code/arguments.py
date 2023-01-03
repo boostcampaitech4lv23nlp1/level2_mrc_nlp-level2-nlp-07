@@ -70,6 +70,19 @@ class DataTrainingArguments:
         default=cfg.data.test_dataset_name,
         metadata={"help": "The name of the dataset to use."},
     )
+
+    aug_kor1: bool = field(
+        default=cfg.data.aug_kor1,
+        metadata={"help": "Whether to use Augmented DataSet squad_kor_v1"},
+    )
+    aug_kor2: bool = field(
+        default=cfg.data.aug_kor2,
+        metadata={"help": "Whether to use Augmented DataSet korquad_v2.1"},
+    )
+    aug_aihub: bool = field(
+        default=cfg.data.aug_aihub,
+        metadata={"help": "Whether to use Augmented DataSet Ai-Hub"},
+    )
     
     overwrite_cache: bool = field(
         default=cfg.data.overwrite_cache,
@@ -111,6 +124,10 @@ class DataTrainingArguments:
         default=cfg.data.eval_retrieval,
         metadata={"help": "Whether to run passage retrieval using sparse embedding."},
     )
+    dense_retrieval: bool = field(
+        default=cfg.data.dense_retrieval,
+        metadata={"help": "Whether to run passage retrieval using dense embedding."},
+    )
     num_clusters: int = field(
         default=cfg.data.num_clusters, 
         metadata={"help": "Define how many clusters to use for faiss."}
@@ -148,12 +165,12 @@ class training_args_class:
                 per_device_train_batch_size = cfg.train.batch_size,
                 per_device_eval_batch_size = cfg.train.batch_size,
                 save_strategy = "steps",
-                save_steps = 20000,
+                save_steps = cfg.train.eval_step,
                 save_total_limit = 3,
                 seed = cfg.train.seed,
                 warmup_ratio = cfg.train.warmup_ratio,
                 weight_decay = cfg.train.weight_decay,
-                push_to_hub=True,
+                push_to_hub=cfg.model.huggingface_hub,
             )
     )
 @dataclass

@@ -25,6 +25,8 @@ from datasets import (
     load_metric,
 )
 from sparse_retrieval import BM25SparseRetrieval, TFIDFSparseRetrieval
+from dense_retrieval import DenseRetrieval
+from retrieval_model import BertEncoder
 from trainer_qa import QuestionAnsweringTrainer
 from transformers import (
     AutoConfig,
@@ -81,7 +83,7 @@ def test():
 
     # True일 경우 : run passage retrieval
     if data_args.eval_retrieval:
-        datasets = run_sparse_retrieval(
+        datasets = run_retrieval(
             tokenizer.tokenize, datasets, inference_args.arg, data_args,
         )
 
@@ -90,7 +92,7 @@ def test():
         run_mrc(cfg, data_args, inference_args.arg, model_args, datasets, tokenizer, model)
 
 
-def run_sparse_retrieval(
+def run_retrieval(
     tokenize_fn: Callable[[str], List[str]],
     datasets: DatasetDict,
     inference_args: inference_args_class,
@@ -98,19 +100,33 @@ def run_sparse_retrieval(
     data_path: str = "/opt/ml/input/data",
     context_path: str = "wikipedia_documents.json",
 ) -> DatasetDict:
-
-    if cfg.test.BM25:
-        retriever = BM25SparseRetrieval(
-            tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
-        )
-        retriever.get_sparse_embedding()
-    else:
-        # Query에 맞는 Passage들을 Retrieval 합니다.
-        retriever = TFIDFSparseRetrieval(
-            tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
-        )
-        retriever.get_sparse_embedding()
     
+    # Query에 맞는 Passage들을 Retrieval 합니다.
+    if data_args.dense_retrieval:
+        if cfg.test.BM25:
+            retriever = BM25SparseRetrieval(
+                tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+            )
+            retriever.get_sparse_embedding()        
+        else:
+            retriever = DenseRetrieval(
+                tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+            )
+            retriever.get_passage_embedding()
+
+    else:
+        if cfg.test.BM25:
+            retriever = BM25SparseRetrieval(
+                tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+            )
+            retriever.get_sparse_embedding()
+        else:
+            # Query에 맞는 Passage들을 Retrieval 합니다.
+            retriever = TFIDFSparseRetrieval(
+                tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
+            )
+            retriever.get_sparse_embedding()
+
     if data_args.use_faiss:
         retriever.build_faiss(num_clusters=data_args.num_clusters)
         df = retriever.retrieve_faiss(

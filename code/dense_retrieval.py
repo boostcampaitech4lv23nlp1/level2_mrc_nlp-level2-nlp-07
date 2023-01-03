@@ -4,16 +4,22 @@ import pickle
 import time
 from contextlib import contextmanager
 from typing import List, NoReturn, Optional, Tuple, Union
-from bm25 import BM25Okapi
-from transformers import AutoTokenizer
-from arguments import cfg
+
 import faiss
 import numpy as np
 import pandas as pd
-from datasets import Dataset, concatenate_datasets, load_from_disk
+from datasets import load_dataset, Dataset, concatenate_datasets, load_from_disk
+from transformers import AutoTokenizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from tqdm.auto import tqdm
+from tqdm import trange
+from arguments import cfg
 
+import torch
+import torch.nn.functional as F
+from transformers import BertModel, BertPreTrainedModel, AdamW, TrainingArguments, get_linear_schedule_with_warmup
+from torch.utils.data import (DataLoader, RandomSampler, TensorDataset, SequentialSampler)
+from retrieval_model import BertEncoder
 
 @contextmanager
 def timer(name):
@@ -22,7 +28,7 @@ def timer(name):
     print(f"[{name}] done in {time.time() - t0:.3f} s")
 
 
-class TFIDFSparseRetrieval:
+class DenseRetrieval:
     def __init__(
         self,
         tokenize_fn,
@@ -60,16 +66,36 @@ class TFIDFSparseRetrieval:
         )  # set 은 매번 순서가 바뀌므로
         print(f"Lengths of unique contexts : {len(self.contexts)}")
         self.ids = list(range(len(self.contexts)))
-
-        # Transform by vectorizer
-        self.tfidfv = TfidfVectorizer(
-            tokenizer=tokenize_fn, ngram_range=(1, 2), max_features=50000,
-        )
-
-        self.p_embedding = None  # get_sparse_embedding()로 생성합니다
+        self.p_embedding = None  # get_passage_embedding()로 생성합니다
         self.indexer = None  # build_faiss()로 생성합니다.
-
-    def get_sparse_embedding(self) -> NoReturn:
+        
+        train_dataset = load_from_disk(os.path.join(data_path, 'train_dataset'))
+        self.train_dataset = train_dataset['train']
+        self.args = TrainingArguments(
+                    output_dir="dense_retrieval",
+                    evaluation_strategy="epoch",
+                    learning_rate=cfg.encoder.lr,
+                    per_device_train_batch_size=cfg.encoder.batch_size,
+                    per_device_eval_batch_size=cfg.encoder.batch_size,
+                    num_train_epochs=cfg.encoder.epoch,
+                    weight_decay=cfg.encoder.weight_decay
+                )
+        model_checkpoint = cfg.encoder.model_name
+        self.tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
+        if cfg.encoder.dense_train == True:
+            self.p_encoder = BertEncoder.from_pretrained(model_checkpoint)
+            self.q_encoder = BertEncoder.from_pretrained(model_checkpoint)
+        else:
+            if not os.path.exists(os.path.join(data_path, 'dense')):
+                os.makedirs(os.path.join(data_path, 'dense'))
+            p_path = os.path.join(data_path, 'dense/p_encoder-{}.pt'.format(cfg.encoder.load_encoder_path))
+            q_path = os.path.join(data_path, 'dense/q_encoder-{}.pt'.format(cfg.encoder.load_encoder_path))
+            self.p_encoder = BertEncoder.from_pretrained(p_path)
+            self.q_encoder = BertEncoder.from_pretrained(q_path)
+        if torch.cuda.is_available():
+            self.p_encoder.cuda()
+            self.q_encoder.cuda()
+    def get_passage_embedding(self) -> NoReturn:
 
         """
         Summary:
@@ -79,26 +105,132 @@ class TFIDFSparseRetrieval:
         """
 
         # Pickle을 저장합니다.
-        pickle_name = f"sparse_embedding.bin"
-        tfidfv_name = f"tfidv.bin"
+        pickle_name = cfg.encoder.embedding_name
         emd_path = os.path.join(self.data_path, pickle_name)
-        tfidfv_path = os.path.join(self.data_path, tfidfv_name)
 
-        if os.path.isfile(emd_path) and os.path.isfile(tfidfv_path):
+        if os.path.isfile(emd_path):
             with open(emd_path, "rb") as file:
                 self.p_embedding = pickle.load(file)
-            with open(tfidfv_path, "rb") as file:
-                self.tfidfv = pickle.load(file)
             print("Embedding pickle load.")
         else:
+            print("Traininig encoders")
+            if cfg.encoder.dense_train == True:
+                self.p_encoder, self.q_encoder = self.encoder_train(self.args, self.train_dataset, self.p_encoder, self.q_encoder)
+                self.p_encoder.save_pretrained('/opt/ml/input/data/dense/p_encoder-{}.pt'.format(cfg.encoder.encoder_postfix))
+                self.q_encoder.save_pretrained('/opt/ml/input/data/dense/q_encoder-{}.pt'.format(cfg.encoder.encoder_postfix))
             print("Build passage embedding")
-            self.p_embedding = self.tfidfv.fit_transform(self.contexts)
-            print(self.p_embedding.shape)
+            eval_batch_size = 8
+
+            # Construt dataloader
+            valid_p_seqs = self.tokenizer(self.contexts, padding="max_length", truncation=True, return_tensors='pt')
+            valid_dataset = TensorDataset(valid_p_seqs['input_ids'], valid_p_seqs['attention_mask'], valid_p_seqs['token_type_ids'])
+            valid_sampler = SequentialSampler(valid_dataset)
+            valid_dataloader = DataLoader(valid_dataset, sampler=valid_sampler, batch_size=eval_batch_size)
+
+            # Inference using the passage encoder to get dense embeddeings
+            p_embs = []
+
+            with torch.no_grad():
+
+                epoch_iterator = tqdm(valid_dataloader, desc="Iteration", position=0, leave=True)
+                self.p_encoder.eval()
+
+                for _, batch in enumerate(epoch_iterator):
+                    batch = tuple(t.cuda() for t in batch)
+
+                    p_inputs = {'input_ids': batch[0],
+                                'attention_mask': batch[1],
+                                'token_type_ids': batch[2]
+                                }
+                        
+                    outputs = self.p_encoder(**p_inputs).to('cpu').numpy()
+                    p_embs.extend(outputs)
+            if cfg.encoder.faiss_gpu:
+                self.p_embedding = p_embs
+            else:
+                self.p_embedding = np.array(p_embs)
+                print(self.p_embedding.shape)
+
             with open(emd_path, "wb") as file:
                 pickle.dump(self.p_embedding, file)
-            with open(tfidfv_path, "wb") as file:
-                pickle.dump(self.tfidfv, file)
             print("Embedding pickle saved.")
+    
+    def encoder_train(self, args, dataset, p_model, q_model):
+        q_seqs = self.tokenizer(dataset['question'], padding="max_length", truncation=True, return_tensors='pt')
+        p_seqs = self.tokenizer(dataset['context'], padding="max_length", truncation=True, return_tensors='pt')
+
+        dataset = TensorDataset(p_seqs['input_ids'], p_seqs['attention_mask'], p_seqs['token_type_ids'], 
+                            q_seqs['input_ids'], q_seqs['attention_mask'], q_seqs['token_type_ids'])
+        # Dataloader
+        train_sampler = RandomSampler(dataset)
+        train_dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=args.per_device_train_batch_size)
+        
+        # Optimizer
+        no_decay = ['bias', 'LayerNorm.weight']
+        optimizer_grouped_parameters = [
+                {'params': [p for n, p in p_model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': args.weight_decay},
+                {'params': [p for n, p in p_model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
+                {'params': [p for n, p in q_model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': args.weight_decay},
+                {'params': [p for n, p in q_model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+                ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+        t_total = len(train_dataloader) // args.gradient_accumulation_steps * args.num_train_epochs
+        scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total)
+        
+        # Start training!
+        global_step = 0
+        
+        p_model.zero_grad()
+        q_model.zero_grad()
+        torch.cuda.empty_cache()
+        
+        train_iterator = trange(int(args.num_train_epochs), desc="Epoch")
+        
+        for _ in train_iterator:
+            epoch_iterator = tqdm(train_dataloader, desc="Iteration")
+        
+            for step, batch in enumerate(epoch_iterator):
+                self.q_encoder.train()
+                self.p_encoder.train()
+                
+                if torch.cuda.is_available():
+                    batch = tuple(t.cuda() for t in batch)
+            
+                p_inputs = {'input_ids': batch[0],
+                            'attention_mask': batch[1],
+                            'token_type_ids': batch[2]
+                            }
+                
+                q_inputs = {'input_ids': batch[3],
+                            'attention_mask': batch[4],
+                            'token_type_ids': batch[5]}
+                
+                p_outputs = p_model(**p_inputs)  # (batch_size, emb_dim)
+                q_outputs = q_model(**q_inputs)  # (batch_size, emb_dim)
+            
+            
+                # Calculate similarity score & loss
+                sim_scores = torch.matmul(q_outputs, torch.transpose(p_outputs, 0, 1))  # (batch_size, emb_dim) x (emb_dim, batch_size) = (batch_size, batch_size)
+            
+                # target: position of positive samples = diagonal element 
+                targets = torch.arange(0, args.per_device_train_batch_size).long()
+                if torch.cuda.is_available():
+                    targets = targets.to('cuda')
+            
+                sim_scores = F.log_softmax(sim_scores, dim=1)
+            
+                loss = F.nll_loss(sim_scores, targets)
+            
+                loss.backward()
+                optimizer.step()
+                scheduler.step()
+                q_model.zero_grad()
+                p_model.zero_grad()
+                global_step += 1
+                
+                torch.cuda.empty_cache()
+
+        return p_model, q_model
 
     def build_faiss(self, num_clusters=64) -> NoReturn:
 
@@ -127,11 +259,18 @@ class TFIDFSparseRetrieval:
             emb_dim = p_emb.shape[-1]
 
             num_clusters = num_clusters
+            if cfg.encoder.faiss_gpu: 
+                res = faiss.StandardGpuResources()
             quantizer = faiss.IndexFlatL2(emb_dim)
-
-            self.indexer = faiss.IndexIVFScalarQuantizer(
+            if cfg.encoder.faiss_gpu:
+                index_ivf = faiss.IndexIVFScalarQuantizer(
                 quantizer, quantizer.d, num_clusters, faiss.METRIC_L2
             )
+                self.indexer = faiss.index_cpu_to_gpu(res, 0, index_ivf)
+            else:
+                self.indexer = faiss.IndexIVFScalarQuantizer(
+                    quantizer, quantizer.d, num_clusters, faiss.METRIC_L2
+                )
             self.indexer.train(p_emb)
             self.indexer.add(p_emb)
             faiss.write_index(self.indexer, indexer_path)
@@ -178,11 +317,11 @@ class TFIDFSparseRetrieval:
             # Retrieve한 Passage를 pd.DataFrame으로 반환합니다.
             total = []
             with timer("query exhaustive search"):
-                doc_scores, doc_indices = self.get_relevant_doc_bulk(
+                doc_indices = self.get_relevant_doc_bulk(
                     query_or_dataset["question"], k=topk
                 )
             for idx, example in enumerate(
-                tqdm(query_or_dataset, desc="Sparse retrieval: ")
+                tqdm(query_or_dataset, desc="Dense retrieval: ")
             ):
                 tmp = {
                     # Query와 해당 id를 반환합니다.
@@ -215,19 +354,21 @@ class TFIDFSparseRetrieval:
         """
 
         with timer("transform"):
-            query_vec = self.tfidfv.transform([query])
-        assert (
-            np.sum(query_vec) != 0
-        ), "오류가 발생했습니다. 이 오류는 보통 query에 vectorizer의 vocab에 없는 단어만 존재하는 경우 발생합니다."
+            q_seqs = self.tokenizer([query], padding="max_length", truncation=True, return_tensors='pt').to('cuda')
+            with torch.no_grad():
+                self.q_encoder.eval()
+                q_embs = self.q_encoder(**q_seqs).to('cpu').numpy()
+            torch.cuda.empty_cache()
+
+        if torch.cuda.is_available():
+            p_embs_cuda = torch.Tensor(self.p_embedding).to('cuda')
+            q_embs_cuda = torch.Tensor(q_embs).to('cuda')
 
         with timer("query ex search"):
-            result = query_vec * self.p_embedding.T
-        if not isinstance(result, np.ndarray):
-            result = result.toarray()
-
-        sorted_result = np.argsort(result.squeeze())[::-1]
-        doc_score = result.squeeze()[sorted_result].tolist()[:k]
-        doc_indices = sorted_result.tolist()[:k]
+            result = torch.matmul(q_embs_cuda, torch.transpose(p_embs_cuda, 0, 1))
+        rank = torch.argsort(result, dim=1, descending=True).squeeze()
+        doc_score = result.squeeze()[rank].tolist()
+        doc_indices = rank.tolist()
         return doc_score, doc_indices
 
     def get_relevant_doc_bulk(
@@ -243,22 +384,19 @@ class TFIDFSparseRetrieval:
         Note:
             vocab 에 없는 이상한 단어로 query 하는 경우 assertion 발생 (예) 뙣뙇?
         """
+        with timer("transform"):
+            q_seqs = self.tokenizer(queries, padding="max_length", truncation=True, return_tensors='pt').to('cuda')
+            with torch.no_grad():
+                self.q_encoder.eval()
+                q_embs = self.q_encoder(**q_seqs).to('cpu').numpy()
+            torch.cuda.empty_cache()
 
-        query_vec = self.tfidfv.transform(queries)
-        assert (
-            np.sum(query_vec) != 0
-        ), "오류가 발생했습니다. 이 오류는 보통 query에 vectorizer의 vocab에 없는 단어만 존재하는 경우 발생합니다."
-
-        result = query_vec * self.p_embedding.T
-        if not isinstance(result, np.ndarray):
-            result = result.toarray()
-        doc_scores = []
-        doc_indices = []
-        for i in range(result.shape[0]):
-            sorted_result = np.argsort(result[i, :])[::-1]
-            doc_scores.append(result[i, :][sorted_result].tolist()[:k])
-            doc_indices.append(sorted_result.tolist()[:k])
-        return doc_scores, doc_indices
+        if torch.cuda.is_available():
+            p_embs_cuda = torch.Tensor(self.p_embedding).to('cuda')
+            q_embs_cuda = torch.Tensor(q_embs).to('cuda')
+        result = torch.matmul(q_embs_cuda, torch.transpose(p_embs_cuda, 0, 1))
+        rank = torch.argsort(result, dim=1, descending=True).squeeze()
+        return rank
 
     def retrieve_faiss(
         self, query_or_dataset: Union[str, Dataset], topk: Optional[int] = 1
@@ -310,7 +448,7 @@ class TFIDFSparseRetrieval:
                     queries, k=topk
                 )
             for idx, example in enumerate(
-                tqdm(query_or_dataset, desc="Sparse retrieval: ")
+                tqdm(query_or_dataset, desc="Dense retrieval: ")
             ):
                 tmp = {
                     # Query와 해당 id를 반환합니다.
@@ -343,14 +481,15 @@ class TFIDFSparseRetrieval:
             vocab 에 없는 이상한 단어로 query 하는 경우 assertion 발생 (예) 뙣뙇?
         """
 
-        query_vec = self.tfidfv.transform([query])
-        assert (
-            np.sum(query_vec) != 0
-        ), "오류가 발생했습니다. 이 오류는 보통 query에 vectorizer의 vocab에 없는 단어만 존재하는 경우 발생합니다."
-
-        q_emb = query_vec.toarray().astype(np.float32)
+        q_seqs = self.tokenizer([query], padding="max_length", truncation=True, return_tensors='pt').to('cuda')
+        with torch.no_grad():
+            self.q_encoder.eval()
+            q_embs = self.q_encoder(**q_seqs).to('cpu').numpy()
+        torch.cuda.empty_cache()
+        
+        # q_embs = q_embs.toarray().astype(np.float32)
         with timer("query faiss search"):
-            D, I = self.indexer.search(q_emb, k)
+            D, I = self.indexer.search(q_embs, k)
 
         return D.tolist()[0], I.tolist()[0]
 
@@ -368,135 +507,42 @@ class TFIDFSparseRetrieval:
             vocab 에 없는 이상한 단어로 query 하는 경우 assertion 발생 (예) 뙣뙇?
         """
 
-        query_vecs = self.tfidfv.transform(queries)
-        assert (
-            np.sum(query_vecs) != 0
-        ), "오류가 발생했습니다. 이 오류는 보통 query에 vectorizer의 vocab에 없는 단어만 존재하는 경우 발생합니다."
-
-        q_embs = query_vecs.toarray().astype(np.float32)
+        q_seqs = self.tokenizer(queries, padding="max_length", truncation=True, return_tensors='pt').to('cuda')
+        with torch.no_grad():
+            self.q_encoder.eval()
+            q_embs = self.q_encoder(**q_seqs).to('cpu').numpy()
+        torch.cuda.empty_cache()
+        
+        q_embs = q_embs.astype(np.float32)
         D, I = self.indexer.search(q_embs, k)
 
         return D.tolist(), I.tolist()
 
-class BM25SparseRetrieval:
-    def __init__(
-        self,
-        tokenize_fn,
-        data_path: Optional[str] = "/opt/ml/input/data/",
-        context_path: Optional[str] = "wikipedia_documents.json",
-    ) -> None:
-
-        self.data_path = data_path
-        with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
-            wiki = json.load(f)
-
-        self.contexts = list(dict.fromkeys([v["text"] for v in wiki.values()]))  # set 은 매번 순서가 바뀌므로
-        print(f"Lengths of unique contexts : {len(self.contexts)}")
-        self.ids = list(range(len(self.contexts)))
-        self.tokenize_fn = tokenize_fn
-        self.bm25 = None                 # get_sparse_embedding()로 생성합니다
-        self.indexer = None              # build_faiss()로 생성합니다.
-
-
-    def get_sparse_embedding(self) -> NoReturn:
-
-        bm25_name = f"bm25_sparse_embedding.bin"
-        bm25_path = os.path.join(self.data_path, bm25_name)
-
-        if os.path.isfile(bm25_path):
-            with open(bm25_path, "rb") as file:
-                self.bm25 = pickle.load(file)
-            print("BM25_Embedding pickle load.")
-        else:
-            print("Build BM25_passage embedding")
-            tokenized_corpus = [self.tokenize_fn(doc) for doc in self.contexts]
-            self.bm25 = BM25Okapi(tokenized_corpus)
-
-            with open(bm25_path, "wb") as file:
-                pickle.dump(self.bm25, file)
-            print("BM25_Embedding pickle saved.")
-
-
-    def retrieve(
-        self, query_or_dataset: Union[str, Dataset], topk: Optional[int] = 1
-    ) -> Union[Tuple[List, List], pd.DataFrame]:
-
-        assert self.bm25 is not None, "get_sparse_embedding() 메소드를 먼저 수행해줘야합니다."
-
-        if isinstance(query_or_dataset, str):
-            doc_scores, doc_indices = self.get_relevant_doc(query_or_dataset, k=topk)
-            print("[Search query]\n", query_or_dataset, "\n")
-
-            for i in range(topk):
-                print(f"Top-{i+1} passage with score {doc_scores[i]:4f}")
-                print(self.contexts[doc_indices[i]])
-
-            return (doc_scores, [self.contexts[doc_indices[i]] for i in range(topk)])
-
-        elif isinstance(query_or_dataset, Dataset):
-
-            # Retrieve한 Passage를 pd.DataFrame으로 반환합니다.
-            total = []
-            with timer("query exhaustive search"):
-                doc_scores, doc_indices = self.get_relevant_doc_bulk(
-                    query_or_dataset["question"], k=topk
-                )
-            for idx, example in enumerate(
-                tqdm(query_or_dataset, desc="Sparse retrieval: ")
-            ):
-                tmp = {
-                    # Query와 해당 id를 반환합니다.
-                    "question": example["question"],
-                    "id": example["id"],
-                    # Retrieve한 Passage의 id, context를 반환합니다.
-                    "context": " ".join(
-                        [self.contexts[pid] for pid in doc_indices[idx]]
-                    ),
-                }
-                if "context" in example.keys() and "answers" in example.keys():
-                    # validation 데이터를 사용하면 ground_truth context와 answer도 반환합니다.
-                    tmp["original_context"] = example["context"]
-                    tmp["answers"] = example["answers"]
-                total.append(tmp)
-
-            cqas = pd.DataFrame(total)
-
-            return cqas
-
-    def get_relevant_doc(self, query: str, k: Optional[int] = 1) -> Tuple[List, List]:
-
-        with timer("transform"):
-            tokenized_corpus = self.tokenize_fn(query)
-            result = np.array([self.bm25.get_batch_scores(query, self.ids) for query in tqdm(tokenized_corpus)])
-        if not isinstance(result, np.ndarray):
-            result = result.toarray()
-
-        sorted_result = np.argsort(result)[::-1]
-        doc_score = result[sorted_result].tolist()[:k]
-        doc_indices = sorted_result.tolist()[:k]
-        return doc_score, doc_indices
-
-    def get_relevant_doc_bulk(
-        self, queries: List, k: Optional[int] = 1
-    ) -> Tuple[List, List]:
-        
-        with timer("transform"):
-            tokenized_corpus = [self.tokenize_fn(doc) for doc in queries]
-            result = np.array([self.bm25.get_batch_scores(query, self.ids) for query in tqdm(tokenized_corpus)])
-        if not isinstance(result, np.ndarray):
-            result = result.toarray()
-        doc_scores = []
-        doc_indices = []
-        for i in range(result.shape[0]):
-            sorted_result = np.argsort(result[i, :])[::-1]
-            doc_scores.append(result[i, :][sorted_result].tolist()[:k])
-            doc_indices.append(sorted_result.tolist()[:k])
-        return doc_scores, doc_indices
 
 if __name__ == "__main__":
 
+    import argparse
+
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument(
+        "--dataset_name", metavar="/opt/ml/input/data/train_dataset", type=str, help=""
+    )
+    parser.add_argument(
+        "--model_name",
+        metavar="bert-base-multilingual-cased",
+        type=str,
+        help="",
+    )
+    parser.add_argument("--data_path", metavar="/opt/ml/input/data", type=str, help="")
+    parser.add_argument(
+        "--context_path", metavar="wikipedia_documents", type=str, help=""
+    )
+    parser.add_argument("--use_faiss", metavar=False, type=bool, help="")
+
+    args = parser.parse_args()
+
     # Test sparse
-    org_dataset = load_from_disk(cfg.data.dataset_name)
+    org_dataset = load_from_disk(args.dataset_name)
     full_ds = concatenate_datasets(
         [
             org_dataset["train"].flatten_indices(),
@@ -506,26 +552,19 @@ if __name__ == "__main__":
     print("*" * 40, "query dataset", "*" * 40)
     print(full_ds)
 
-    tokenizer = AutoTokenizer.from_pretrained(cfg.model.model_name, use_fast=False,)
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=False,)
+
+    retriever = DenseRetrieval(
+        tokenize_fn=tokenizer.tokenize,
+        data_path=args.data_path,
+        context_path=args.context_path,
+    )
 
     query = "대통령을 포함한 미국의 행정부 견제권을 갖는 국가 기관은?"
-    
-    if cfg.test.BM25:
-        retriever = BM25SparseRetrieval(
-            tokenize_fn=tokenizer.tokenize,
-            data_path=cfg.data.data_path,
-            context_path=cfg.data.context_path,
-        )
-        retriever.get_sparse_embedding()
-    else:
-        retriever = TFIDFSparseRetrieval(
-            tokenize_fn=tokenizer.tokenize,
-            data_path=cfg.data.data_path,
-            context_path=cfg.data.context_path,
-        )
-        retriever.get_sparse_embedding()
 
-    if cfg.data.use_faiss:
+    if args.use_faiss:
 
         # test single query
         with timer("single query by faiss"):
@@ -540,8 +579,8 @@ if __name__ == "__main__":
 
     else:
         with timer("bulk query by exhaustive search"):
-            df = retriever.retrieve(full_ds, 100)
-            df["correct"] = [original_context in context for original_context, context in zip(df["original_context"], df["context"])]
+            df = retriever.retrieve(full_ds)
+            df["correct"] = df["original_context"] == df["context"]
             print(
                 "correct retrieval result by exhaustive search",
                 df["correct"].sum() / len(df),
