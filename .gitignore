@@ -139,3 +139,10 @@ code/outputs/
 code/wandb/
 code/models/
 opt/ml/input/code/models/
+
+
+baseline/output_model
+baseline/question_gen
+baseline/model/poly_encoder/Pairwise-Comparison/model_ckpt
+baseline/model/poly_encoder/Pairwise-Comparison/wandb
+baseline/wandb
