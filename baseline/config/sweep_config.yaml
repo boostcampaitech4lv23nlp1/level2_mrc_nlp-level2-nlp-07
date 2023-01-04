@@ -1,0 +1,22 @@
+program: train.py
+method: grid
+project: testtest
+name: hello
+metric:
+  goal: maximize
+  name: eval/exact_match
+parameters:
+  model_name:
+    values: [klue/roberta-small]
+  output_dir:
+    values: [./models/sweep123/]
+  batch_size: 
+    values: [8, 16]
+  epochs:
+    values: [30]
+  warmup_ratio:
+    values: [0.1, 0.2, 0.3]
+  weight_decay:
+    values: [0.01, 0.05, 0.1]
+  label_smoothing_factor:
+    values: [0.1, 0.2, 0.3]

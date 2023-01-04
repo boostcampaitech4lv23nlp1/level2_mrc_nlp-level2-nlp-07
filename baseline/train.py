@@ -21,7 +21,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def train(cfg):
+def train(cfg,s_cfg=None):
     # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
     # --help flag 를 실행시켜서 확인할 수 도 있습니다.
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -84,7 +84,7 @@ def train(cfg):
         
         label_smoothing_factor = 0.1,
         gradient_accumulation_steps = cfg.train.gradient_accumulation_steps, 
-        per_device_train_batch_size=cfg.train.batch_size,    # default : 16
+        per_device_train_batch_size=cfg.train.batch_size,    # default : 16 
         per_device_eval_batch_size=cfg.train.batch_size,     # default : 16
 
         warmup_steps=cfg.train.warmup_step,               
