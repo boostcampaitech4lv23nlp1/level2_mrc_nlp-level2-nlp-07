@@ -165,12 +165,12 @@ class training_args_class:
                 per_device_train_batch_size = cfg.train.batch_size,
                 per_device_eval_batch_size = cfg.train.batch_size,
                 save_strategy = "steps",
-                save_steps = 4000,
+                save_steps = cfg.train.eval_step,
                 save_total_limit = 3,
                 seed = cfg.train.seed,
                 warmup_ratio = cfg.train.warmup_ratio,
                 weight_decay = cfg.train.weight_decay,
-                # push_to_hub=True,
+                push_to_hub=cfg.model.huggingface_hub,
             )
     )
 @dataclass
@@ -192,7 +192,7 @@ class inference_args_class:
                 per_device_train_batch_size = cfg.train.batch_size,
                 per_device_eval_batch_size = cfg.train.batch_size,
                 save_strategy = "steps",
-                save_steps = 1000,
+                save_steps = 100,
                 save_total_limit = 3,
                 seed = cfg.train.seed,
                 warmup_ratio = cfg.train.warmup_ratio,

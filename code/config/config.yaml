@@ -33,6 +33,7 @@ model:
     if_not_roberta: False    # bert는 True, roberta는 False
     # config_name: None
     # tokenizer_name: None
+    huggingface_hub: True    # huggingface에 올리는건 True, 아니면 False
 
 train:
     train_mode: True
@@ -43,10 +44,11 @@ train:
     weight_decay: 0.1
     warmup_ratio: 0.1
     logging_step: 4000
-    eval_step: 4000
+    eval_step: 4000                 # eval step와 save step은 같이 바뀝니다.
     label_smoothing_factor: 0.1
     load_best_model_at_end: True
     gradient_accumulation_steps: 1
+    optimizer_step_size: 8000       # 본인이 하는거에 맞춰서 주기 5 ~ 10정도에 맞게 설정하기
 
 test:
     test_mode: True

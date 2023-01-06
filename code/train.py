@@ -358,8 +358,9 @@ def run_mrc(cfg,
         return metric.compute(predictions=p.predictions, references=p.label_ids)
 
     optimizer = optim.SGD(model.parameters(), lr = 2.24e-04, momentum=0.9)
-    scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=8000, step_size_down=8000, mode='triangular')
+    scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr = 2.24e-06, max_lr=2.24e-03, step_size_up=cfg.train.optimizer_step_size, step_size_down=cfg.train.optimizer_step_size, mode='triangular')
     optimizers = (optimizer,scheduler)
+    
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
         model=model,
