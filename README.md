@@ -1,12 +1,10 @@
 # 부스트캠프 4기 NLP 07조 염보라
 ## Members
----
 
 김한성|염성현|이재욱|최동민|홍인희|
 :-:|:-:|:-:|:-:|:-:
 <img src='https://user-images.githubusercontent.com/44632158/208237676-ae158236-16a5-4436-9a81-8e0727fe6412.jpeg' height=80 width=80px></img>|<img src='https://user-images.githubusercontent.com/44632158/208237686-c66a4f96-1be0-41e2-9fbf-3bf738796c1b.jpeg' height=80 width=80px></img>|<img src='https://user-images.githubusercontent.com/108864803/208801820-5b050001-77ed-4714-acd2-3ad42c889ff2.png' height=80 width=80px></img>|<img src='https://user-images.githubusercontent.com/108864803/208802208-0e227130-6fe5-4ca0-9226-46d2b07df9bf.png' height=80 width=80px></img>|<img src='https://user-images.githubusercontent.com/97818356/208237742-7901464c-c4fc-4066-8a85-1488d56e0cce.jpg' height=80 width=80px></img>|
 [Github](https://github.com/datakim1201)|[Github](https://github.com/neulvo)|[Github](https://github.com/datakim1201)|[Github](https://github.com/datakim1201)|[Github](https://github.com/datakim1201)
-&nbsp;
 
 ## Wrap up report
 [project report 바로가기](https://github.com/boostcampaitech4lv23nlp1/level2_klue_nlp-level2-nlp-07/blob/main/NLP%20%EA%B4%80%EA%B3%84%EC%B6%94%EC%B6%9C_NLP_%ED%8C%80%20%EB%A6%AC%ED%8F%AC%ED%8A%B8(07%EC%A1%B0).pdf)
@@ -19,7 +17,6 @@
 
 &nbsp;
 ## 프로젝트 개요
----
 >**Open-Domain Question Answering (ODQA)** 은 주어지는 지문이 따로 존재하지 않고 사전에 구축되어있는 Knowledge resource 에서 질문에 대답할 수 있는 문서를 찾는 과정입니다. ODQA는 two-stage로 질문에 관련된 문서를 찾아주는 **“retriever”**, 관련된 문서를 읽고 적절한 답변을 찾아주는 **“reader”** 로 구성되어 있습니다. 두 가지 단계를 각각 구성하고 통합하여 어려운 질문을 던져도 답변을 해주는 ODQA 시스템을 만들고자 하였습니다.
 
 
@@ -31,7 +28,6 @@
 &nbsp;
 
 ## 데이터 설명
----
 아래는 제공하는 데이터셋의 분포를 보여줍니다.
 
 <img src ='https://user-images.githubusercontent.com/97818356/211025102-b9ea49d1-40cc-49c7-9810-6c7424b7675e.jpg'>
@@ -47,7 +43,6 @@ data에 대한 argument 는 `code/arguments.py` 의 `DataTrainingArguments` 에�
 
 &nbsp;
 ## 프로젝트 세부 내용
----
 ### Data
 - EDA
 - Preprocesisng
@@ -66,7 +61,6 @@ data에 대한 argument 는 `code/arguments.py` 의 `DataTrainingArguments` 에�
 ### Ensemble
 &nbsp; 
 ## 설치 방법
----
 ### 요구 사항
 
 ```
@@ -78,7 +72,6 @@ bash .code/install/install_requirements.sh
 ```
 &nbsp; 
 ## Train, Evaluation, Inference
----
 ```bash
 # train, evaluation, inference를 통합하여 진행하고자 한다면, 아래 코드를 실행하세요.
 python main.py
@@ -181,7 +174,6 @@ inference 후, `output_json_dir` 위치에 `predictions.json`이라는 파일이
 
 &nbsp; 
 ## 프로젝트 구조
----
 ```
 ODQA Project/
 │
