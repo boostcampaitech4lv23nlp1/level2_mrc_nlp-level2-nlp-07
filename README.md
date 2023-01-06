@@ -64,7 +64,18 @@ data에 대한 argument 는 `code/arguments.py` 의 `DataTrainingArguments` 에�
 ### Post processing
   
 ### Ensemble
+&nbsp; 
+## 설치 방법
+---
+### 요구 사항
 
+```
+# data (51.2 MB)
+tar -xzf data.tar.gz
+
+# 필요한 파이썬 패키지 설치. 
+bash .code/install/install_requirements.sh
+```
 &nbsp; 
 ## Train, Evaluation, Inference
 ---
