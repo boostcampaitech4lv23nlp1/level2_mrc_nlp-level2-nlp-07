@@ -107,7 +107,7 @@ train:
     lr : 1e-5
     weight_decay: 0.1
     warmup_ratio: 0.1
-    logging_step: 4000
+    logging_step: 100
     eval_step: 4000                 # eval step와 save step은 같이 바뀝니다.
     label_smoothing_factor: 0.1
     load_best_model_at_end: True
