@@ -139,3 +139,4 @@ code/outputs/
 code/wandb/
 code/models/
 opt/ml/input/code/models/
+./baseline/wandb/

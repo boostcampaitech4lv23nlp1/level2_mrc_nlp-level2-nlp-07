@@ -9,8 +9,10 @@ from transformers import (
     AutoTokenizer,
     AutoModelForQuestionAnswering,
     DataCollatorWithPadding,
-    TrainingArguments,
 )
+from arguments import (
+    DataTrainingArguments, ModelArguments, training_args_class, cfg,
+    model_args, data_args, training_args)
 from utils.load_data import MRC_Dataset
 from utils.util import compute_metrics,aug_data
 # from model.reader import MRCModel
@@ -21,7 +23,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def train(cfg):
+def train():
     # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
     # --help flag 를 실행시켜서 확인할 수 도 있습니다.
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -36,25 +38,23 @@ def train(cfg):
     ##################### MODEL Define ########################
 
     tokenizer = AutoTokenizer.from_pretrained(
-        cfg.model.model_name_or_path,
+        model_args.tokenizer_name
+        if model_args.tokenizer_name is not None
+        else model_args.model_name,
         use_fast=True,
     )
-    if cfg.model.load_last_model:
         # model = MRCModel(cfg.model.model_name_or_path)
-        model.load_state_dict(torch.load(cfg.model.checkpoint_path))
-        print(f"model is from {cfg.model.checkpoint_path}")
-
-    else:
-        # model = MRCModel(cfg.model.model_name_or_path)
-        model = AutoModelForQuestionAnswering.from_pretrained(cfg.model.model_name_or_path)
-        print(f"model is from {cfg.model.model_name_or_path}")
+    model = AutoModelForQuestionAnswering.from_pretrained(
+            model_args.model_name
+            )
+    print(f"model is from {model_args.model_name}")
 
     ##################### DATA Define ########################
-    datasets = load_from_disk(cfg.data.train_path)
-    if cfg.data.use_aug:
-        new_data = load_dataset("squad_kor_v1")
-        datasets = aug_data(datasets, new_data)
+    datasets = load_from_disk(data_args.dataset_name)
+    if cfg.data.aug_path is not None:
+        datasets = aug_data(datasets, cfg.data.aug_path)
     print(datasets)
+    
     train_dataset = MRC_Dataset(datasets['train'],tokenizer=tokenizer,cfg=cfg)
     validation_dataset = MRC_Dataset(datasets['validation'],tokenizer=tokenizer,cfg=cfg)
     print(f'train_dataset {train_dataset[0].keys()}')
@@ -72,50 +72,15 @@ def train(cfg):
     scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=cfg.scheduler.T_0, T_mult=cfg.scheduler.T_mult, eta_min=cfg.scheduler.eta_min)
     optimizers = (optimizer,scheduler)
 
-    training_args = TrainingArguments(
-        do_train = cfg.exp.train,
-        do_eval = cfg.exp.train,
-        do_predict = False,
-        output_dir=cfg.model.save_path,
-        save_total_limit=5,
-        save_steps=2000, 
-        num_train_epochs=cfg.train.epoch,
-        learning_rate= cfg.train.lr,                         # default : 5e-5
-        
-        label_smoothing_factor = 0.1,
-        gradient_accumulation_steps = cfg.train.gradient_accumulation_steps, 
-        per_device_train_batch_size=cfg.train.batch_size,    # default : 16
-        per_device_eval_batch_size=cfg.train.batch_size,     # default : 16
-
-        warmup_steps=cfg.train.warmup_step,               
-        weight_decay=cfg.train.weight_decay,
-        warmup_ratio = cfg.train.warmup_ratio,           
-    
-        # for log
-        logging_steps=cfg.train.logging_step,               
-        evaluation_strategy='steps',     
-        eval_steps = cfg.train.eval_step,                 # evaluation step.
-        load_best_model_at_end = True,
-        
-        metric_for_best_model= 'eval_loss',
-        greater_is_better=False,                             # False : loss 기준으로 최적화 해봄 도르
-        # dataloader_num_workers=cfg.data.num_worker,
-        fp16=cfg.train.fp16,
-
-
-        # wandb
-        report_to="wandb",
-        run_name= cfg.wandb.exp_name
-        )
     logger.info("Training/evaluation parameters %s", training_args)
     data_collator = DataCollatorWithPadding(
-        tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None
+        tokenizer, pad_to_multiple_of=8 if cfg.train.fp16 else None
     )
 
 
     trainer = QuestionAnsweringTrainer(
         model=model,                     # the instantiated 🤗 Transformers model to be trained
-        args=training_args,              # training arguments, defined above
+        args=training_args.train_args,              # training arguments, defined above
         train_dataset= train_dataset,  # training dataset
         eval_dataset= validation_dataset,     # evaluation dataset use dev
         eval_examples = datasets['validation'],     # evaluation dataset use dev
@@ -126,18 +91,16 @@ def train(cfg):
         # callbacks = [EarlyStoppingCallback(early_stopping_patience=cfg.train.patience)]# total_step / eval_step : max_patience
     )
 
-    if training_args.do_train:
+    if training_args.train_args.do_train:
         checkpoint = None
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
         metrics = train_result.metrics
         metrics["train_samples"] = len(train_dataset)
-
+        
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
-        trainer.save_state()
-
 
         output_train_file = os.path.join(training_args.output_dir, "train_results.txt")
 
@@ -146,14 +109,13 @@ def train(cfg):
             for key, value in sorted(train_result.metrics.items()):
                 logger.info(f"  {key} = {value}")
                 writer.write(f"{key} = {value}\n")
-
         # State 저장
         trainer.state.save_to_json(
             os.path.join(training_args.output_dir, "trainer_state.json")
         )
 
     # Evaluation
-    if training_args.do_eval:
+    if training_args.train_args.do_eval:
         logger.info("*** Evaluate ***")
         metrics = trainer.evaluate()
 

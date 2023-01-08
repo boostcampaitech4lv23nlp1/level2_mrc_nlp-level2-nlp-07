@@ -9,19 +9,20 @@ import logging
 import sys
 from typing import Callable, Dict, List, NoReturn, Tuple
 
-import numpy as np
+import numpy as np 
+from arguments import (
+    DataTrainingArguments, inference_args_class, cfg,
+    model_args, data_args, inference_args)
 from datasets import (
     DatasetDict,
     load_from_disk,
-    load_metric,
 )
 
 from trainer.trainer import QuestionAnsweringTrainer
 from transformers import (
     AutoTokenizer,
     DataCollatorWithPadding,
-    EvalPrediction,
-    TrainingArguments,
+    AutoModelForQuestionAnswering
 )
 from utils.load_data import MRC_Dataset
 from utils.util import run_sparse_retrieval,set_seed
@@ -31,7 +32,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def test(cfg):
+def test():
     # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
     # --help flag 를 실행시켜서 확인할 수 도 있습니다.
     # logging 설정
@@ -59,15 +60,18 @@ def test(cfg):
         use_fast=True,
     )
     if cfg.load_last_model:
-        model = MRCModel(cfg.model_name_or_path)
-        model.load_state_dict(torch.load(cfg.model.load_last_model))
-        print(f"model is from {cfg.model.load_last_model}")
-
+        # model = MRCModel(cfg.model_name_or_path)
+        # model.load_state_dict(torch.load(cfg.model.load_last_model))
+        # print(f"model is from {cfg.model.load_last_model}")
+        model = AutoModelForQuestionAnswering.from_pretrained(
+            model_args.trained_model_name,
+            from_tf=bool(".ckpt" in model_args.trained_model_name),
+        )
 
     # True일 경우 : run passage retrieval
-    if cfg.exp.test:
+    if cfg.test.test_mode:
         datasets = run_sparse_retrieval(
-            tokenizer.tokenize, datasets
+            cfg,tokenizer.tokenize, datasets
         )
 
     eval_dataset = MRC_Dataset(datasets["validation"],tokenizer=tokenizer)
@@ -79,7 +83,7 @@ def test(cfg):
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
         model=model,
-        args=TrainingArguments,
+        args=inference_args.inference_args,
         train_dataset=None,
         eval_dataset=eval_dataset,
         eval_examples=datasets["validation"],
@@ -92,7 +96,7 @@ def test(cfg):
     logger.info("*** Evaluate ***")
 
     #### eval dataset & eval example - predictions.json 생성됨
-    if cfg.train.do_predict:
+    if cfg.test.test_mode:
         predictions = trainer.predict(
             test_dataset=eval_dataset, test_examples=datasets["validation"]
         )

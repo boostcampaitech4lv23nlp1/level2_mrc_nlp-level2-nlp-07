@@ -324,7 +324,7 @@ class MRC_Dataset(torch.utils.data.Dataset):
             stride= self.cfg.data.doc_stride, #self.cfg.data.stride,
             return_overflowing_tokens=True,
             return_offsets_mapping=True,
-            return_token_type_ids=self.cfg.model.is_not_roberta, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
+            return_token_type_ids=self.cfg.model.if_not_roberta, # roberta모델을 사용할 경우 False, bert를 사용할 경우 True로 표기해야합니다.
             padding="max_length"
         )
         tokenized_examples["example_id"] = []
