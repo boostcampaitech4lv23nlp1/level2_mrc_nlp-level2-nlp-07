@@ -177,35 +177,42 @@ inference 후, `output_json_dir` 위치에 `predictions.json`이라는 파일이
 ```
 ODQA Project/
 │
-├── baseline/ 
-├── code/ 
-│   ├── config/
-│   │   ├── config.yaml
-│   │   └── sweep_config.yaml
-│   │
-│   ├── install/
-│   │   └── install_requirements.sh
-│   │
-│   ├── notebook/
-│   │   ├── EDA_for_wikipedia.ipynb
-│   │   ├── ...
-│   │   └── squad.ipynb
-│   │
-│   ├── arguments.py
+├── train.py 
+├── inference.py 
+├── arguments.py
+├── main.py
+│
+├── backup/ backup for baseline..
+├── install/
+│   └── install_requirements.sh
+│
+├── notebook/
+│   ├── EDA_for_wikipedia.ipynb
+│   ├── ...
+│   └── squad.ipynb
+│
+│
+├── config/ - abstract all config for model
+│   ├── config.yaml
+│   └── sweep_config.yaml
+│
+├── model/ 
+│   ├── poly_encoder/ for poly , bi-encoder, cross encoder
 │   ├── bm25.py
+│   ├── sparse_retrieval.py -> compose TF-IDF, BM25
 │   ├── dense_retrieval.py
-│   ├── ensemble.py
-│   ├── inference.py
-│   ├── main.py
-│   ├── retrieval_model.py
-│   ├── sparse_retrieval.py
-│   ├── train.py
-│   ├── train_sweep.py
-│   ├── trainer_qa.py
-│   └── utils_qa.py
+│   ├── poly_retrieval.py
+│   ├── encoder.py -> for DPR encoder
+│   └── reader.py
 │
-├── .gitignore
-├── README.md
+├── trainer/ 
+│   └── trainer.py  -> trian_qa.py 변형 및 통합
 │
+├── utils/ 
+│   ├── load_data.py
+│   ├── util_qa.py
+│   └── util.py
+│
+│  
 └── thanks for comming I'm Yeombora
 ```
