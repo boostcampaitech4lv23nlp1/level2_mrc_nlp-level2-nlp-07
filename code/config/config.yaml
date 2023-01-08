@@ -52,7 +52,7 @@ train:
 
 test:
     test_mode: True
-    BM25: True      # BM25는 True, TF-IDF는 False
+    retrieval: 'BM25'      # BM25,TF-IDF,DPR,POLY True, TF-IDF는 False
 
 encoder:
     model_name: klue/roberta-base

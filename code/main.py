@@ -34,5 +34,4 @@ if __name__ == "__main__":
     if cfg.test.test_mode:
         print('--------------------- test start ----------------------')
         test()
-        
     print('----------------- Finish! ---------------------')

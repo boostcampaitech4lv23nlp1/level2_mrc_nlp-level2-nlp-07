@@ -1,0 +1,75 @@
+############################ 꼭 체크해야 할 것 ###################################
+## output_model_dir, output_json_dir, model_name, train_mode, test_mode, wandb ##
+#################################################################################
+
+# 주석 처리한 부분은 기본으로 None 설정되어 있고, 바꾸시려면 arguments.py에서 바꾸시면 됩니다.
+# 항상 꼼꼼히 살펴보시고 바꾸어주세요. (*** 특히 wandb 실험명 바꾸기 ***)
+# output 저장소가 이미 존재한다면 덮어쓰기가 안됩니다. 주의하세요.
+# 자세한 내용은 arguments.py를 참고하시기 바랍니다.
+data:
+    data_path: /opt/ml/input/data
+    context_path: wikipedia_documents.json
+    dataset_name: /opt/ml/input/data/train_dataset
+    test_dataset_name: /opt/ml/input/data/test_dataset/
+    aug_kor1: True # kor 1.0 증강
+    aug_kor2: True # kor 2.1 증강
+    aug_aihub: True
+    overwrite_cache: False
+    # preprocessing_num_workers: None
+    max_seq_length: 512
+    pad_to_max_length: False
+    doc_stride: 256
+    max_answer_length: 30
+    eval_retrieval: True
+    dense_retrieval: True
+    num_clusters: 64
+    top_k_retrieval: 40
+    use_faiss: True # BM25의 경우 faiss를 사용하지 않습니다.
+    output_model_dir: inhee/8_roberta-large_train_korquad-1_aihub10_final  # ./models/8_roberta-large_train_korquad-1_2_aihub     # 파일 이름 변경하기
+    output_json_dir: ./outputs/8_roberta-large_train_korquad-1_2_aihub_poly/    # 파일 이름 변경하기
+
+model:
+    model_name: klue/roberta-large # inhee/8_roberta-large_train_korquad-1 
+    if_not_roberta: False    # bert는 True, roberta는 False
+    # config_name: None
+    # tokenizer_name: None
+    huggingface_hub: True    # huggingface에 올리는건 True, 아니면 False
+
+train:
+    train_mode: False
+    seed: 42
+    batch_size: 8
+    epoch: 15
+    lr : 1e-5
+    weight_decay: 0.1
+    warmup_ratio: 0.1
+    logging_step: 4000
+    eval_step: 4000                 # eval step와 save step은 같이 바뀝니다.
+    label_smoothing_factor: 0.1
+    load_best_model_at_end: True
+    gradient_accumulation_steps: 1
+    optimizer_step_size: 8000       # 본인이 하는거에 맞춰서 주기 5 ~ 10정도에 맞게 설정하기
+
+test:
+    test_mode: True
+    BM25: False      # BM25는 True, TF-IDF는 False
+
+encoder:
+    poly_mode : True
+    model_name: /opt/ml/input/level2_mrc_nlp-level2-nlp-07/code/poly_encoder/model_ckpt/0104_qa-last.ckpt
+    ckpt : True
+    epoch: 50
+    batch_size: 16
+    lr: 2e-5
+    weight_decay: 0.01
+    dense_train: False
+    faiss_gpu: False
+    embedding_name: dense_embedding2.bin
+    encoder_postfix: test # if dense_train == True
+    load_encoder_path: test # if dense_train == False
+
+wandb:
+    wandb_mode: True
+    entity: mrc_bora
+    project_name: testtest
+    exp_name: robeta-large_kor1-2_aihub
