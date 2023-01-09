@@ -78,15 +78,13 @@ python main.py
 ```
 &nbsp;  
 ### Train, Evaluation
-train, evaluation에서 필요한 세팅은 `code/config/config.yaml`에서 해주세요. 설정해줘야 할 값들은 아래와 같습니다.
+train, evaluation에서 필요한 세팅은 `config/config.yaml`에서 해주세요. 설정해줘야 할 값들은 아래와 같습니다.
 ```bash
 # code/config/config.yaml
 data:
     data_path: /opt/ml/input/data
     dataset_name: /opt/ml/input/data/train_dataset # train data
-    aug_kor1: True                                 # kor 1.0 데이터 증강
-    aug_kor2: True                                 # kor 2.1 데이터 증강
-    aug_aihub: True                                # AI hub 데이터 증강
+    aug_path : ['squad_kor_v1', 'OTHER_PATH']      # 증강할 데이의 폴더를 입력하면 됩니다.
     overwrite_cache: False
     max_seq_length: 512
     pad_to_max_length: False
