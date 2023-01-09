@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
 # C extensions
 *.so
@@ -133,3 +134,10 @@ dmypy.json
 .idea/
 .DS_Store
 test.ipynb
+
+# output folders
+code/outputs/
+code/wandb/
+code/models/
+opt/ml/input/code/models/
+./baseline/wandb/
