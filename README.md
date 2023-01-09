@@ -39,7 +39,7 @@
     ./test_dataset/            # 제출에 사용될 데이터셋. validation 으로 구성 
     ./wikipedia_documents.json # 위키피디아 문서 집합. retrieval을 위해 쓰이는 corpus.
 ```
-data에 대한 argument 는 `code/arguments.py` 의 `DataTrainingArguments` 에서 확인 가능합니다.
+data에 대한 argument 는 `arguments.py` 의 `DataTrainingArguments` 에서 확인 가능합니다.
 
 &nbsp;
 ## 프로젝트 세부 내용
@@ -68,7 +68,7 @@ data에 대한 argument 는 `code/arguments.py` 의 `DataTrainingArguments` 에�
 tar -xzf data.tar.gz
 
 # 필요한 파이썬 패키지 설치. 
-bash .code/install/install_requirements.sh
+bash install/install_requirements.sh
 ```
 &nbsp; 
 ## Train, Evaluation, Inference
@@ -80,7 +80,7 @@ python main.py
 ### Train, Evaluation
 train, evaluation에서 필요한 세팅은 `config/config.yaml`에서 해주세요. 설정해줘야 할 값들은 아래와 같습니다.
 ```bash
-# code/config/config.yaml
+# config/config.yaml
 data:
     data_path: /opt/ml/input/data
     dataset_name: /opt/ml/input/data/train_dataset # train data
@@ -125,7 +125,7 @@ python main.py
 ```
 &nbsp; 
 ### Inference
-inference에서 필요한 세팅은 `code/config/config.yaml`에서 해주세요. 설정해줘야 할 값들은 아래와 같습니다.
+inference에서 필요한 세팅은 `config/config.yaml`에서 해주세요. 설정해줘야 할 값들은 아래와 같습니다.
 ```bash
 data:
     data_path: /opt/ml/input/data
