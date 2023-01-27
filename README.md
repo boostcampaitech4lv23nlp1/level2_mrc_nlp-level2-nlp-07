@@ -7,7 +7,7 @@
 [Github](https://github.com/datakim1201)|[Github](https://github.com/neulvo)|[Github](https://github.com/datakim1201)|[Github](https://github.com/datakim1201)|[Github](https://github.com/datakim1201)
 
 ## Wrap up report
-[project report 바로가기](MRC_NLP_팀 리포트(07조).pdf)
+[project report 바로가기](https://github.com/boostcampaitech4lv23nlp1/level2_mrc_nlp-level2-nlp-07/blob/master/MRC_NLP_%ED%8C%80%20%EB%A6%AC%ED%8F%AC%ED%8A%B8(07%EC%A1%B0).pdf)
 
 &nbsp;
 
